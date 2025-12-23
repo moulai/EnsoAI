@@ -60,6 +60,7 @@ export function WorktreePanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [worktreeToDelete, setWorktreeToDelete] = useState<GitWorktree | null>(null);
   const [deleteBranch, setDeleteBranch] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredWorktrees = worktrees.filter(
     (wt) =>
@@ -204,18 +205,24 @@ export function WorktreePanel({
             </label>
           )}
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="outline">取消</Button>} />
+            <AlertDialogClose render={<Button variant="outline" disabled={isDeleting}>取消</Button>} />
             <Button
               variant="destructive"
+              disabled={isDeleting}
               onClick={async () => {
                 if (worktreeToDelete) {
-                  await onRemoveWorktree(worktreeToDelete, deleteBranch);
-                  setWorktreeToDelete(null);
-                  setDeleteBranch(false);
+                  setIsDeleting(true);
+                  try {
+                    await onRemoveWorktree(worktreeToDelete, deleteBranch);
+                    setWorktreeToDelete(null);
+                    setDeleteBranch(false);
+                  } finally {
+                    setIsDeleting(false);
+                  }
                 }
               }}
             >
-              删除
+              {isDeleting ? '删除中...' : '删除'}
             </Button>
           </AlertDialogFooter>
         </AlertDialogPopup>
