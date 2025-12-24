@@ -68,13 +68,34 @@ export function SessionBar({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [showAgentMenu, setShowAgentMenu] = useState(false);
+  const [installedAgents, setInstalledAgents] = useState<Set<string>>(new Set());
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStart = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
 
   // Get enabled agents from settings
   const { agentSettings, customAgents } = useSettingsStore();
+
+  // Detect installed agents on mount
+  useEffect(() => {
+    for (const agentId of BUILTIN_AGENT_IDS) {
+      window.electronAPI.cli.detectOne(agentId).then((result) => {
+        if (result.installed) {
+          setInstalledAgents((prev) => new Set([...prev, agentId]));
+        }
+      });
+    }
+    for (const agent of customAgents) {
+      window.electronAPI.cli.detectOne(agent.id, agent).then((result) => {
+        if (result.installed) {
+          setInstalledAgents((prev) => new Set([...prev, agent.id]));
+        }
+      });
+    }
+  }, [customAgents]);
+
+  // Filter to only enabled AND installed agents
   const enabledAgents = [...BUILTIN_AGENT_IDS, ...customAgents.map((a) => a.id)].filter(
-    (id) => agentSettings[id]?.enabled
+    (id) => agentSettings[id]?.enabled && installedAgents.has(id)
   );
 
   // Save state
