@@ -476,6 +476,9 @@ export function DiffViewer({
                 maxColumn: 80,
               },
             }}
+            // Prevent library from disposing models before DiffEditorWidget resets
+            keepCurrentOriginalModel
+            keepCurrentModifiedModel
           />
         )}
       </div>
