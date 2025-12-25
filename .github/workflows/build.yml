@@ -54,13 +54,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac-${{ matrix.arch }}
-          path: dist/*.dmg
-          retention-days: 7
-
   build-windows:
     runs-on: windows-latest
     steps:
@@ -101,32 +94,3 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: --max-old-space-size=4096
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-x64
-          path: dist/*.exe
-          retention-days: 7
-
-  release:
-    needs: [build-mac, build-windows]
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: List artifacts
-        run: find artifacts -type f
-
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/**/*.dmg
-            artifacts/**/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
