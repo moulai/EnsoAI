@@ -77,6 +77,9 @@ export const IPC_CHANNELS = {
   // Settings
   SETTINGS_READ: 'settings:read',
   SETTINGS_WRITE: 'settings:write',
+
+  // Notification
+  NOTIFICATION_SHOW: 'notification:show',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

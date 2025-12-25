@@ -223,6 +223,12 @@ const electronAPI = {
       return () => ipcRenderer.removeListener('menu-action', handler);
     },
   },
+
+  // Notification
+  notification: {
+    show: (options: { title: string; body?: string; silent?: boolean }): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.NOTIFICATION_SHOW, options),
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

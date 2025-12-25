@@ -180,6 +180,8 @@ interface SettingsState {
   customAgents: CustomAgent[];
   shellConfig: ShellConfig;
   wslEnabled: boolean;
+  agentNotificationEnabled: boolean;
+  agentNotificationDelay: number; // in seconds
 
   setTheme: (theme: Theme) => void;
   setFontSize: (size: number) => void;
@@ -202,6 +204,8 @@ interface SettingsState {
   removeCustomAgent: (id: string) => void;
   setShellConfig: (config: ShellConfig) => void;
   setWslEnabled: (enabled: boolean) => void;
+  setAgentNotificationEnabled: (enabled: boolean) => void;
+  setAgentNotificationDelay: (delay: number) => void;
 }
 
 const defaultAgentSettings: AgentSettings = {
@@ -236,6 +240,8 @@ export const useSettingsStore = create<SettingsState>()(
         shellType: window.electronAPI?.env.platform === 'win32' ? 'powershell7' : 'system',
       },
       wslEnabled: false,
+      agentNotificationEnabled: true,
+      agentNotificationDelay: 3, // 3 seconds
 
       setTheme: (theme) => {
         const terminalTheme = get().terminalTheme;
@@ -325,6 +331,8 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setShellConfig: (shellConfig) => set({ shellConfig }),
       setWslEnabled: (wslEnabled) => set({ wslEnabled }),
+      setAgentNotificationEnabled: (agentNotificationEnabled) => set({ agentNotificationEnabled }),
+      setAgentNotificationDelay: (agentNotificationDelay) => set({ agentNotificationDelay }),
     }),
     {
       name: 'enso-settings',

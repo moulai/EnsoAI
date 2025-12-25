@@ -157,6 +157,14 @@ const scrollbackOptions = [
   { value: 50000, label: '50,000 行' },
 ];
 
+const notificationDelayOptions = [
+  { value: 1, label: '1 秒' },
+  { value: 2, label: '2 秒' },
+  { value: 3, label: '3 秒' },
+  { value: 5, label: '5 秒' },
+  { value: 10, label: '10 秒' },
+];
+
 function GeneralSettings() {
   const {
     terminalRenderer,
@@ -167,6 +175,10 @@ function GeneralSettings() {
     setShellConfig,
     wslEnabled,
     setWslEnabled,
+    agentNotificationEnabled,
+    setAgentNotificationEnabled,
+    agentNotificationDelay,
+    setAgentNotificationDelay,
   } = useSettingsStore();
 
   const [shells, setShells] = React.useState<ShellInfo[]>([]);
@@ -291,6 +303,51 @@ function GeneralSettings() {
             终端可向上滚动查看的历史行数，值越大内存占用越高
           </p>
           <p className="text-xs text-muted-foreground">更改后需新建终端才能生效</p>
+        </div>
+      </div>
+
+      {/* Agent Notification Section */}
+      <div className="pt-4 border-t">
+        <h3 className="text-lg font-medium">Agent 通知</h3>
+        <p className="text-sm text-muted-foreground">Agent 停止输出时发送系统通知</p>
+      </div>
+
+      {/* Notification Enable */}
+      <div className="grid grid-cols-[100px_1fr] items-center gap-4">
+        <span className="text-sm font-medium">启用通知</span>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Agent 空闲时发送系统通知</p>
+          <Switch
+            checked={agentNotificationEnabled}
+            onCheckedChange={setAgentNotificationEnabled}
+          />
+        </div>
+      </div>
+
+      {/* Notification Delay */}
+      <div className="grid grid-cols-[100px_1fr] items-start gap-4">
+        <span className="text-sm font-medium mt-2">空闲时间</span>
+        <div className="space-y-1.5">
+          <Select
+            value={String(agentNotificationDelay)}
+            onValueChange={(v) => setAgentNotificationDelay(Number(v))}
+            disabled={!agentNotificationEnabled}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue>
+                {notificationDelayOptions.find((o) => o.value === agentNotificationDelay)?.label ??
+                  `${agentNotificationDelay} 秒`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectPopup>
+              {notificationDelayOptions.map((opt) => (
+                <SelectItem key={opt.value} value={String(opt.value)}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectPopup>
+          </Select>
+          <p className="text-xs text-muted-foreground">Agent 停止输出后等待多久发送通知</p>
         </div>
       </div>
     </div>

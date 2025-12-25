@@ -4,6 +4,7 @@ import {
   type TerminalSearchBarRef,
 } from '@/components/terminal/TerminalSearchBar';
 import { useXterm } from '@/hooks/useXterm';
+import { useSettingsStore } from '@/stores/settings';
 
 interface AgentTerminalProps {
   cwd?: string;
@@ -32,10 +33,13 @@ export function AgentTerminal({
   onActivated,
   onExit,
 }: AgentTerminalProps) {
+  const { agentNotificationEnabled, agentNotificationDelay } = useSettingsStore();
   const outputBufferRef = useRef('');
   const startTimeRef = useRef<number | null>(null);
   const hasInitializedRef = useRef(false);
   const hasActivatedRef = useRef(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasNotifiedIdleRef = useRef(false);
 
   // Build command with session args
   const command = useMemo(() => {
@@ -88,7 +92,7 @@ export function AgentTerminal({
     // Quick exit without session error - keep tab open for debugging
   }, [onExit]);
 
-  // Track output for error detection
+  // Track output for error detection and idle notification
   const handleData = useCallback(
     (data: string) => {
       // Start timer on first data
@@ -107,8 +111,40 @@ export function AgentTerminal({
       if (outputBufferRef.current.length > 1000) {
         outputBufferRef.current = outputBufferRef.current.slice(-500);
       }
+
+      // Skip notification if disabled
+      if (!agentNotificationEnabled) return;
+
+      // Reset idle notification state when receiving new data
+      hasNotifiedIdleRef.current = false;
+
+      // Clear existing idle timer
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+
+      // Set new idle timer - notify when agent stops outputting
+      idleTimerRef.current = setTimeout(() => {
+        // Only notify once per idle period and only if session is activated
+        if (!hasNotifiedIdleRef.current && hasActivatedRef.current) {
+          hasNotifiedIdleRef.current = true;
+          // Extract project name from cwd path
+          const projectName = cwd?.split('/').pop() || 'Unknown';
+          window.electronAPI.notification.show({
+            title: `${agentCommand} 已完成`,
+            body: projectName,
+          });
+        }
+      }, agentNotificationDelay * 1000);
     },
-    [initialized, onInitialized]
+    [
+      initialized,
+      onInitialized,
+      agentCommand,
+      cwd,
+      agentNotificationEnabled,
+      agentNotificationDelay,
+    ]
   );
 
   // Handle Shift+Enter for newline (Ctrl+J / LF for all agents)
@@ -222,6 +258,15 @@ export function AgentTerminal({
     container.addEventListener('contextmenu', handleContextMenu);
     return () => container.removeEventListener('contextmenu', handleContextMenu);
   }, [isActive, handleContextMenu, containerRef]);
+
+  // Cleanup idle timer on unmount
+  useEffect(() => {
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="relative h-full w-full" style={{ backgroundColor: settings.theme.background }}>
