@@ -1,4 +1,5 @@
-import { electronApp, is, optimizer } from '@electron-toolkit/utils';
+import { electronApp, optimizer } from '@electron-toolkit/utils';
+import { IPC_CHANNELS } from '@shared/types';
 import { app, BrowserWindow, Menu } from 'electron';
 import { cleanupAllResources, registerIpcHandlers } from './ipc';
 import { checkGitInstalled } from './services/git/checkGit';
@@ -7,6 +8,105 @@ import { autoUpdaterService } from './services/updater/AutoUpdater';
 import { createMainWindow } from './windows/MainWindow';
 
 let mainWindow: BrowserWindow | null = null;
+let pendingOpenPath: string | null = null;
+
+// Register URL scheme handler (must be done before app is ready)
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('enso', process.execPath, [process.argv[1]]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('enso');
+}
+
+// Parse URL and extract path
+function parseEnsoUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'enso:') {
+      const path = parsed.searchParams.get('path');
+      if (path) {
+        return decodeURIComponent(path);
+      }
+    }
+  } catch {
+    // Invalid URL
+  }
+  return null;
+}
+
+// Send open path event to renderer
+function sendOpenPath(path: string): void {
+  const windows = BrowserWindow.getAllWindows();
+  if (windows.length > 0) {
+    const win = windows[0];
+    win.focus();
+    // Check if renderer is ready (not loading)
+    if (win.webContents.isLoading()) {
+      pendingOpenPath = path;
+    } else {
+      win.webContents.send(IPC_CHANNELS.APP_OPEN_PATH, path);
+    }
+  } else {
+    pendingOpenPath = path;
+  }
+}
+
+// Sanitize path: remove trailing slashes/backslashes and stray quotes (Windows CMD issue)
+function sanitizePath(path: string): string {
+  return path.replace(/[\\/]+$/, '').replace(/^["']|["']$/g, '');
+}
+
+// Handle command line arguments
+function handleCommandLineArgs(argv: string[]): void {
+  for (const arg of argv) {
+    if (arg.startsWith('--open-path=')) {
+      const rawPath = arg.slice('--open-path='.length);
+      const path = sanitizePath(rawPath);
+      if (path) {
+        sendOpenPath(path);
+      }
+      return;
+    }
+    if (arg.startsWith('enso://')) {
+      const rawPath = parseEnsoUrl(arg);
+      const path = rawPath ? sanitizePath(rawPath) : null;
+      if (path) {
+        sendOpenPath(path);
+      }
+      return;
+    }
+  }
+}
+
+// macOS: Handle open-url event
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  const path = parseEnsoUrl(url);
+  if (path) {
+    if (app.isReady()) {
+      sendOpenPath(path);
+    } else {
+      pendingOpenPath = path;
+    }
+  }
+});
+
+// Windows/Linux: Handle second instance
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_, commandLine) => {
+    // Focus existing window
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    // Handle command line from second instance
+    handleCommandLineArgs(commandLine);
+  });
+}
 
 async function init(): Promise<void> {
   // Check Git installation
@@ -32,6 +132,15 @@ app.whenReady().then(async () => {
 
   mainWindow = createMainWindow();
 
+  // IMPORTANT: Set up did-finish-load handler BEFORE handling command line args
+  // to avoid race condition where page loads before handler is registered
+  mainWindow.webContents.once('did-finish-load', () => {
+    if (pendingOpenPath) {
+      mainWindow?.webContents.send(IPC_CHANNELS.APP_OPEN_PATH, pendingOpenPath);
+      pendingOpenPath = null;
+    }
+  });
+
   // Initialize auto-updater
   autoUpdaterService.init(mainWindow);
 
@@ -42,6 +151,9 @@ app.whenReady().then(async () => {
     },
   });
   Menu.setApplicationMenu(menu);
+
+  // Handle initial command line args (this may set pendingOpenPath)
+  handleCommandLineArgs(process.argv);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

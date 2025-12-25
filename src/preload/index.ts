@@ -153,6 +153,11 @@ const electronAPI = {
     confirmClose: (confirmed: boolean): void => {
       ipcRenderer.send(IPC_CHANNELS.APP_CLOSE_CONFIRM, confirmed);
     },
+    onOpenPath: (callback: (path: string) => void): (() => void) => {
+      const handler = (_: unknown, path: string) => callback(path);
+      ipcRenderer.on(IPC_CHANNELS.APP_OPEN_PATH, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.APP_OPEN_PATH, handler);
+    },
   },
 
   // Dialog
@@ -194,6 +199,13 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.CLI_DETECT, customAgents, options),
     detectOne: (agentId: string, customAgent?: CustomAgent): Promise<AgentCliInfo> =>
       ipcRenderer.invoke(IPC_CHANNELS.CLI_DETECT_ONE, agentId, customAgent),
+    // CLI Installer
+    getInstallStatus: (): Promise<{ installed: boolean; path: string | null; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_INSTALL_STATUS),
+    install: (): Promise<{ installed: boolean; path: string | null; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_INSTALL),
+    uninstall: (): Promise<{ installed: boolean; path: string | null; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_UNINSTALL),
   },
 
   // Settings

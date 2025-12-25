@@ -66,6 +66,22 @@ const getStoredTabMap = (): Record<string, TabId> => {
   return {};
 };
 
+// Normalize path for comparison (handles Windows case-insensitivity and trailing slashes)
+const normalizePath = (path: string): string => {
+  // Remove trailing slashes/backslashes
+  let normalized = path.replace(/[\\/]+$/, '');
+  // On Windows, normalize to lowercase for case-insensitive comparison
+  if (navigator.platform.startsWith('Win')) {
+    normalized = normalized.toLowerCase();
+  }
+  return normalized;
+};
+
+// Check if two paths are equal (considering OS-specific rules)
+const pathsEqual = (path1: string, path2: string): boolean => {
+  return normalizePath(path1) === normalizePath(path2);
+};
+
 export default function App() {
   // Per-worktree tab state: { [worktreePath]: TabId }
   const [worktreeTabMap, setWorktreeTabMap] = useState<Record<string, TabId>>(getStoredTabMap);
@@ -327,6 +343,27 @@ export default function App() {
     localStorage.setItem('enso-repositories', JSON.stringify(repos));
     setRepositories(repos);
   }, []);
+
+  // Listen for open path event from CLI (enso command)
+  useEffect(() => {
+    const cleanup = window.electronAPI.app.onOpenPath((rawPath) => {
+      // Normalize the path: remove trailing slashes and any stray quotes (Windows CMD issue)
+      const path = rawPath.replace(/[\\/]+$/, '').replace(/^["']|["']$/g, '');
+      // Check if repo already exists (using path comparison that handles Windows case-insensitivity)
+      const existingRepo = repositories.find((r) => pathsEqual(r.path, path));
+      if (existingRepo) {
+        setSelectedRepo(existingRepo.path);
+      } else {
+        // Handle both forward and back slashes for name extraction
+        const name = path.split(/[\\/]/).pop() || path;
+        const newRepo: Repository = { name, path };
+        const updated = [...repositories, newRepo];
+        saveRepositories(updated);
+        setSelectedRepo(path);
+      }
+    });
+    return cleanup;
+  }, [repositories, saveRepositories]);
 
   // Remove repository from workspace
   const handleRemoveRepository = useCallback(

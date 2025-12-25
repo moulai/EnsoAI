@@ -1,10 +1,13 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ExternalLink,
   FolderOpen,
   GitBranch,
+  Loader2,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Terminal,
 } from 'lucide-react';
 import * as React from 'react';
 import { useEffect, useRef } from 'react';
@@ -14,8 +17,83 @@ import {
   CommandPanel,
   CommandShortcut,
 } from '@/components/ui/command';
+import { toastManager } from '@/components/ui/toast';
 import { useDetectedApps, useOpenWith } from '@/hooks/useAppDetector';
 import { cn } from '@/lib/utils';
+
+function useCliInstallStatus() {
+  return useQuery({
+    queryKey: ['cli', 'install-status'],
+    queryFn: async () => {
+      return await window.electronAPI.cli.getInstallStatus();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+function useCliInstall() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      return await window.electronAPI.cli.install();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['cli', 'install-status'] });
+      if (result.installed) {
+        toastManager.add({
+          type: 'success',
+          title: '安装成功',
+          description: `'enso' 命令已安装到 ${result.path}`,
+        });
+      } else if (result.error) {
+        toastManager.add({
+          type: 'error',
+          title: '安装失败',
+          description: result.error,
+        });
+      }
+    },
+    onError: (error) => {
+      toastManager.add({
+        type: 'error',
+        title: '安装失败',
+        description: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
+}
+
+function useCliUninstall() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      return await window.electronAPI.cli.uninstall();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['cli', 'install-status'] });
+      if (!result.installed) {
+        toastManager.add({
+          type: 'success',
+          title: '卸载成功',
+          description: "'enso' 命令已卸载",
+        });
+      } else if (result.error) {
+        toastManager.add({
+          type: 'error',
+          title: '卸载失败',
+          description: result.error,
+        });
+      }
+    },
+    onError: (error) => {
+      toastManager.add({
+        type: 'error',
+        title: '卸载失败',
+        description: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
+}
 
 interface ActionPanelProps {
   open: boolean;
@@ -34,6 +112,8 @@ interface ActionItem {
   icon: React.ElementType;
   shortcut?: string;
   action: () => void;
+  disabled?: boolean;
+  loading?: boolean;
 }
 
 interface ActionGroup {
@@ -57,6 +137,11 @@ export function ActionPanel({
 
   const { data: detectedApps = [] } = useDetectedApps();
   const openWith = useOpenWith();
+
+  // CLI install status
+  const { data: cliStatus } = useCliInstallStatus();
+  const cliInstall = useCliInstall();
+  const cliUninstall = useCliUninstall();
 
   const actionGroups: ActionGroup[] = React.useMemo(() => {
     const groups: ActionGroup[] = [
@@ -87,6 +172,31 @@ export function ActionPanel({
             shortcut: '⌘,',
             action: onOpenSettings,
           },
+          // CLI install/uninstall action
+          {
+            id: 'cli-install',
+            label:
+              cliInstall.isPending || cliUninstall.isPending
+                ? cliStatus?.installed
+                  ? '正在卸载...'
+                  : '正在安装...'
+                : cliStatus?.installed
+                  ? "卸载 'enso' 命令"
+                  : "安装 'enso' 命令到 PATH",
+            icon: cliInstall.isPending || cliUninstall.isPending ? Loader2 : Terminal,
+            loading: cliInstall.isPending || cliUninstall.isPending,
+            disabled: cliInstall.isPending || cliUninstall.isPending,
+            action: async () => {
+              if (cliInstall.isPending || cliUninstall.isPending) return;
+              // Re-check status at execution time
+              const status = await window.electronAPI.cli.getInstallStatus();
+              if (status.installed) {
+                cliUninstall.mutate();
+              } else {
+                cliInstall.mutate();
+              }
+            },
+          },
         ],
       },
     ];
@@ -112,10 +222,13 @@ export function ActionPanel({
     worktreeCollapsed,
     projectPath,
     detectedApps,
+    cliStatus,
     onToggleWorkspace,
     onToggleWorktree,
     onOpenSettings,
     openWith,
+    cliInstall,
+    cliUninstall,
   ]);
 
   // Flatten and filter actions for keyboard navigation
@@ -222,16 +335,18 @@ export function ActionPanel({
                         key={item.id}
                         type="button"
                         data-action-index={currentIndex}
+                        disabled={item.disabled}
                         className={cn(
                           'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
                           currentIndex === selectedIndex
                             ? 'bg-accent text-accent-foreground'
-                            : 'text-foreground hover:bg-accent/50'
+                            : 'text-foreground hover:bg-accent/50',
+                          item.disabled && 'cursor-not-allowed opacity-60'
                         )}
-                        onClick={() => executeAction(item)}
+                        onClick={() => !item.disabled && executeAction(item)}
                         onMouseEnter={() => setSelectedIndex(currentIndex)}
                       >
-                        <item.icon className="h-4 w-4" />
+                        <item.icon className={cn('h-4 w-4', item.loading && 'animate-spin')} />
                         <span className="flex-1 text-left">{item.label}</span>
                         {item.shortcut && <CommandShortcut>{item.shortcut}</CommandShortcut>}
                       </button>
