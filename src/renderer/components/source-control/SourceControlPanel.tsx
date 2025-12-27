@@ -1,9 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   GitBranch,
   GripVertical,
   History,
+  Loader2,
   PanelLeft,
   PanelLeftClose,
 } from 'lucide-react';
@@ -25,6 +28,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { useGitPull, useGitPush, useGitStatus } from '@/hooks/useGit';
 import { useCommitDiff, useCommitFiles, useGitHistoryInfinite } from '@/hooks/useGitHistory';
 import { useFileChanges } from '@/hooks/useSourceControl';
 import { useI18n } from '@/i18n';
@@ -72,6 +76,12 @@ export function SourceControlPanel({
     refetch,
   } = useFileChanges(rootPath ?? null, isActive);
 
+  // Git sync status
+  const { data: gitStatus, refetch: refetchStatus } = useGitStatus(rootPath ?? null, isActive);
+  const pushMutation = useGitPush();
+  const pullMutation = useGitPull();
+  const isSyncing = pushMutation.isPending || pullMutation.isPending;
+
   const {
     data: commitsData,
     isLoading: commitsLoading,
@@ -86,8 +96,40 @@ export function SourceControlPanel({
     if (isActive && rootPath) {
       refetch();
       refetchCommits();
+      refetchStatus();
     }
-  }, [isActive, rootPath, refetch, refetchCommits]);
+  }, [isActive, rootPath, refetch, refetchCommits, refetchStatus]);
+
+  // Sync handler: pull first (if behind), then push (if ahead)
+  const handleSync = useCallback(async () => {
+    if (!rootPath || isSyncing) return;
+
+    try {
+      // Pull first if behind
+      if (gitStatus?.behind && gitStatus.behind > 0) {
+        await pullMutation.mutateAsync({ workdir: rootPath });
+      }
+      // Then push if ahead
+      if (gitStatus?.ahead && gitStatus.ahead > 0) {
+        await pushMutation.mutateAsync({ workdir: rootPath });
+      }
+      // Refetch all data after sync
+      refetch();
+      refetchCommits();
+      refetchStatus();
+    } catch {
+      // Errors are handled by mutation's onError
+    }
+  }, [
+    rootPath,
+    isSyncing,
+    gitStatus,
+    pullMutation,
+    pushMutation,
+    refetch,
+    refetchCommits,
+    refetchStatus,
+  ]);
 
   // Flatten infinite query data
   const commits = commitsData?.pages.flat() ?? [];
@@ -326,20 +368,55 @@ export function SourceControlPanel({
 
               {/* History Section (Collapsible) */}
               <div className={cn('flex flex-col', historyExpanded ? 'flex-1 min-h-0' : 'shrink-0')}>
-                <button
-                  type="button"
-                  onClick={() => setHistoryExpanded(!historyExpanded)}
-                  className="group flex w-full items-center gap-2 px-4 py-2 text-left rounded-sm hover:bg-accent/50 transition-colors shrink-0 focus:outline-none"
-                >
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 text-muted-foreground/60 group-hover:text-foreground transition-all duration-200',
-                      !historyExpanded && '-rotate-90'
-                    )}
-                  />
-                  <History className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('History')}</span>
-                </button>
+                <div className="group flex items-center shrink-0 rounded-sm hover:bg-accent/50 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryExpanded(!historyExpanded)}
+                    className="flex flex-1 items-center gap-2 px-4 py-2 text-left focus:outline-none"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 text-muted-foreground/60 group-hover:text-foreground transition-all duration-200',
+                        !historyExpanded && '-rotate-90'
+                      )}
+                    />
+                    <History className="h-4 w-4" />
+                    <span className="text-sm font-medium">{t('History')}</span>
+                  </button>
+
+                  {/* Sync Button */}
+                  {gitStatus?.tracking && (gitStatus.ahead > 0 || gitStatus.behind > 0) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSync();
+                      }}
+                      disabled={isSyncing}
+                      className="mr-2 flex h-6 items-center gap-1 rounded px-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+                      title={t('Sync with remote')}
+                    >
+                      {isSyncing ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <>
+                          {gitStatus.ahead > 0 && (
+                            <span className="flex items-center gap-0.5 text-blue-500">
+                              <ArrowUp className="h-3 w-3" />
+                              {gitStatus.ahead}
+                            </span>
+                          )}
+                          {gitStatus.behind > 0 && (
+                            <span className="flex items-center gap-0.5 text-orange-500">
+                              <ArrowDown className="h-3 w-3" />
+                              {gitStatus.behind}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
 
                 {historyExpanded && (
                   <div className="h-full flex-1 overflow-hidden min-h-0">

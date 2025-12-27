@@ -144,6 +144,7 @@ export function useGitPull() {
     onSuccess: (_, { workdir }) => {
       queryClient.invalidateQueries({ queryKey: ['git', 'status', workdir] });
       queryClient.invalidateQueries({ queryKey: ['git', 'log', workdir] });
+      queryClient.invalidateQueries({ queryKey: ['git', 'log-infinite', workdir] });
     },
   });
 }
