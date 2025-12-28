@@ -93,6 +93,13 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.arch }}-electron-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-${{ matrix.arch }}-electron-
 
+      - name: Cache electron-rebuild
+        uses: actions/cache@v4
+        with:
+          path: .electron-rebuild-cache
+          key: ${{ runner.os }}-${{ matrix.arch }}-rebuild-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.arch }}-rebuild-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -142,6 +149,13 @@ jobs:
           key: ${{ runner.os }}-electron-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-electron-
 
+      - name: Cache electron-rebuild
+        uses: actions/cache@v4
+        with:
+          path: .electron-rebuild-cache
+          key: ${{ runner.os }}-rebuild-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-rebuild-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -189,6 +203,13 @@ jobs:
             ~/.cache/electron-builder
           key: ${{ runner.os }}-electron-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-electron-
+
+      - name: Cache electron-rebuild
+        uses: actions/cache@v4
+        with:
+          path: .electron-rebuild-cache
+          key: ${{ runner.os }}-rebuild-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-rebuild-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

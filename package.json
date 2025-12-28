@@ -15,7 +15,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron-vite preview",
-    "postinstall": "electron-rebuild",
+    "postinstall": "electron-rebuild --use-cache",
     "rebuild": "electron-rebuild",
     "build:mac": "pnpm build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
     "build:win": "pnpm build && electron-builder --win",

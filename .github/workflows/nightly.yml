@@ -121,6 +121,14 @@ jobs:
           restore-keys: ${{ runner.os }}-${{ matrix.arch }}-electron-
           save-always: true
 
+      - name: Cache electron-rebuild
+        uses: actions/cache@v4
+        with:
+          path: .electron-rebuild-cache
+          key: ${{ runner.os }}-${{ matrix.arch }}-rebuild-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.arch }}-rebuild-
+          save-always: true
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -174,6 +182,14 @@ jobs:
             ~/AppData/Local/electron-builder/Cache
           key: ${{ runner.os }}-electron-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-electron-
+          save-always: true
+
+      - name: Cache electron-rebuild
+        uses: actions/cache@v4
+        with:
+          path: .electron-rebuild-cache
+          key: ${{ runner.os }}-rebuild-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-rebuild-
           save-always: true
 
       - name: Install dependencies
@@ -230,6 +246,14 @@ jobs:
           restore-keys: ${{ runner.os }}-electron-
           save-always: true
 
+      - name: Cache electron-rebuild
+        uses: actions/cache@v4
+        with:
+          path: .electron-rebuild-cache
+          key: ${{ runner.os }}-rebuild-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-rebuild-
+          save-always: true
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -265,8 +289,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 删除所有 -nightly 后缀的 release
-          gh release list --limit 100 | grep -E '\-nightly\s' | awk '{print $3}' | while read tag; do
+          # 删除所有 -nightly 后缀的 release（使用 JSON 格式获取准确的 tag 名）
+          gh release list --limit 100 --json tagName -q '.[].tagName' | grep -E '\-nightly$' | while read tag; do
             echo "Deleting release: $tag"
             gh release delete "$tag" --yes --cleanup-tag || true
           done
