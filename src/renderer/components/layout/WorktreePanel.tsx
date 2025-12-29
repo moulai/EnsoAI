@@ -93,6 +93,10 @@ export function WorktreePanel({
       wt.path.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Get the main worktree path for git operations
+  const mainWorktree = worktrees.find((wt) => wt.isMainWorktree);
+  const workdir = mainWorktree?.path || '';
+
   const fetchDiffStats = useWorktreeActivityStore((s) => s.fetchDiffStats);
   const activities = useWorktreeActivityStore((s) => s.activities);
 
@@ -142,6 +146,7 @@ export function WorktreePanel({
         <CreateWorktreeDialog
           branches={branches}
           projectName={projectName}
+          workdir={workdir}
           isLoading={isCreating}
           onSubmit={onCreateWorktree}
           trigger={
@@ -241,6 +246,7 @@ export function WorktreePanel({
               <CreateWorktreeDialog
                 branches={branches}
                 projectName={projectName}
+                workdir={workdir}
                 isLoading={isCreating}
                 onSubmit={onCreateWorktree}
                 trigger={

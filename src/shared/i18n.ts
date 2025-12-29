@@ -644,6 +644,26 @@ export const zhTranslations: Record<string, string> = {
   'Enable Happy Agent': '启用 Happy Agent',
   'Use Happy to run supported agents': '使用 Happy 运行支持的 Agent',
   'Install Happy globally to enable this feature': '全局安装 Happy 以启用此功能',
+  // PR Worktree
+  'From branch': '从分支',
+  'From PR': '从 PR',
+  'Checking gh CLI...': '检查 gh CLI...',
+  'GitHub CLI not installed': '未安装 GitHub CLI',
+  'To create worktrees from pull requests, please install GitHub CLI:':
+    '要从 Pull Request 创建 worktree，请安装 GitHub CLI:',
+  'Learn more': '了解更多',
+  'GitHub CLI not authenticated': '未登录 GitHub CLI',
+  'Please authenticate with GitHub CLI:': '请登录 GitHub CLI:',
+  Retry: '重试',
+  'Pull Request': 'Pull Request',
+  'Loading pull requests...': '加载 Pull Request...',
+  'No open pull requests found': '没有打开的 Pull Request',
+  'Search pull requests...': '搜索 Pull Request...',
+  'No pull requests found': '未找到 Pull Request',
+  Draft: '草稿',
+  'Select a pull request': '请选择一个 Pull Request',
+  'Leave empty to use the PR branch name:': '留空则使用 PR 分支名:',
+  optional: '可选',
 };
 
 export function normalizeLocale(input?: string): Locale {

@@ -74,3 +74,20 @@ export interface CommitDetail {
   files: CommitFileChange[];
   fullDiff: string;
 }
+
+// Pull Request types
+export interface PullRequest {
+  number: number;
+  title: string;
+  headRefName: string; // PR source branch name
+  state: 'OPEN' | 'CLOSED' | 'MERGED';
+  author: string;
+  updatedAt: string;
+  isDraft: boolean;
+}
+
+export interface GhCliStatus {
+  installed: boolean;
+  authenticated: boolean;
+  error?: string;
+}

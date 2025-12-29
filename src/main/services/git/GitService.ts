@@ -1,17 +1,23 @@
+import { exec } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import type {
   CommitFileChange,
   FileChange,
   FileChangeStatus,
   FileChangesResult,
   FileDiff,
+  GhCliStatus,
   GitBranch,
   GitLogEntry,
   GitStatus,
+  PullRequest,
 } from '@shared/types';
 import simpleGit, { type SimpleGit, type StatusResult } from 'simple-git';
 import { getEnhancedPath } from '../terminal/PtyManager';
+
+const execAsync = promisify(exec);
 
 export class GitService {
   private git: SimpleGit;
@@ -418,6 +424,78 @@ export class GitService {
     } catch {
       // Repository might not have HEAD (empty repo) or other issues
       return { insertions: 0, deletions: 0 };
+    }
+  }
+
+  // GitHub CLI methods
+  async getGhCliStatus(): Promise<GhCliStatus> {
+    try {
+      // Check if gh is installed
+      await execAsync('gh --version', {
+        cwd: this.workdir,
+        env: { ...process.env, PATH: getEnhancedPath() },
+      });
+    } catch {
+      return { installed: false, authenticated: false, error: 'gh CLI not installed' };
+    }
+
+    try {
+      // Check if gh is authenticated
+      await execAsync('gh auth status', {
+        cwd: this.workdir,
+        env: { ...process.env, PATH: getEnhancedPath() },
+      });
+      return { installed: true, authenticated: true };
+    } catch {
+      return { installed: true, authenticated: false, error: 'gh CLI not authenticated' };
+    }
+  }
+
+  async listPullRequests(): Promise<PullRequest[]> {
+    try {
+      const { stdout } = await execAsync(
+        'gh pr list --state open --json number,title,headRefName,state,author,updatedAt,isDraft --limit 50',
+        {
+          cwd: this.workdir,
+          env: { ...process.env, PATH: getEnhancedPath() },
+        }
+      );
+
+      const prs = JSON.parse(stdout) as Array<{
+        number: number;
+        title: string;
+        headRefName: string;
+        state: string;
+        author: { login: string };
+        updatedAt: string;
+        isDraft: boolean;
+      }>;
+
+      return prs.map((pr) => ({
+        number: pr.number,
+        title: pr.title,
+        headRefName: pr.headRefName,
+        state: pr.state as 'OPEN' | 'CLOSED' | 'MERGED',
+        author: pr.author.login,
+        updatedAt: pr.updatedAt,
+        isDraft: pr.isDraft,
+      }));
+    } catch (error) {
+      throw new Error(
+        `Failed to list PRs: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async fetchPullRequest(prNumber: number, localBranch: string): Promise<void> {
+    try {
+      // Fetch PR head to local branch without checking out
+      // This creates the branch locally pointing to the PR's head commit
+      await this.git.fetch(['origin', `pull/${prNumber}/head:${localBranch}`]);
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch PR #${prNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 }

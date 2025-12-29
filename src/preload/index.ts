@@ -16,6 +16,7 @@ import type {
   FileEntry,
   FileSearchParams,
   FileSearchResult,
+  GhCliStatus,
   GitBranch,
   GitLogEntry,
   GitStatus,
@@ -23,6 +24,7 @@ import type {
   MergeConflict,
   MergeConflictContent,
   MergeState,
+  PullRequest,
   ShellConfig,
   ShellInfo,
   TerminalCreateOptions,
@@ -120,6 +122,13 @@ const electronAPI = {
       ipcRenderer.on(IPC_CHANNELS.GIT_CODE_REVIEW_DATA, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.GIT_CODE_REVIEW_DATA, handler);
     },
+    // GitHub CLI
+    getGhStatus: (workdir: string): Promise<GhCliStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_GH_STATUS, workdir),
+    listPullRequests: (workdir: string): Promise<PullRequest[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_PR_LIST, workdir),
+    fetchPullRequest: (workdir: string, prNumber: number, localBranch: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_PR_FETCH, workdir, prNumber, localBranch),
   },
 
   // Worktree

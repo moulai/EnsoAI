@@ -23,6 +23,9 @@ export const IPC_CHANNELS = {
   GIT_CODE_REVIEW_START: 'git:code-review:start',
   GIT_CODE_REVIEW_STOP: 'git:code-review:stop',
   GIT_CODE_REVIEW_DATA: 'git:code-review:data',
+  GIT_GH_STATUS: 'git:gh:status',
+  GIT_PR_LIST: 'git:pr:list',
+  GIT_PR_FETCH: 'git:pr:fetch',
 
   // Worktree
   WORKTREE_LIST: 'worktree:list',
