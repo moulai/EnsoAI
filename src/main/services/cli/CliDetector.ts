@@ -102,14 +102,24 @@ class CliDetector {
     }
 
     // Unix: use login shell to load user's full environment
-    // Note: use -lc (login) instead of -ilc (interactive login)
-    // because -i may fail without a tty in Electron environment
+    // Try interactive login shell first (-ilc) to load .zshrc/.bashrc
+    // This is needed for version managers like fnm/nvm that are configured in rc files
+    // Fall back to non-interactive (-lc) if -i fails (e.g., some shells without tty)
     const shell = findUserShell();
     const escapedCommand = command.replace(/"/g, '\\"');
-    const { stdout } = await execAsync(`${shell} -lc "${escapedCommand}"`, {
-      timeout,
-    });
-    return stdout;
+
+    try {
+      const { stdout } = await execAsync(`${shell} -ilc "${escapedCommand}"`, {
+        timeout,
+      });
+      return stdout;
+    } catch {
+      // Fallback to non-interactive login shell
+      const { stdout } = await execAsync(`${shell} -lc "${escapedCommand}"`, {
+        timeout,
+      });
+      return stdout;
+    }
   }
 
   private async isWslAvailable(): Promise<boolean> {
