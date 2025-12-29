@@ -120,6 +120,7 @@ export function useXterm({
   const cleanupRef = useRef<(() => void) | null>(null);
   const exitCleanupRef = useRef<(() => void) | null>(null);
   const linkProviderDisposableRef = useRef<{ dispose: () => void } | null>(null);
+  const rendererAddonRef = useRef<{ dispose: () => void } | null>(null);
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
   const onDataRef = useRef(onData);
@@ -239,19 +240,29 @@ export function useXterm({
     if (terminalRenderer === 'webgl') {
       try {
         const webglAddon = new WebglAddon();
-        webglAddon.onContextLoss(() => webglAddon.dispose());
+        webglAddon.onContextLoss(() => {
+          // Guard against disposed terminal
+          if (terminalRef.current && rendererAddonRef.current === webglAddon) {
+            webglAddon.dispose();
+          }
+        });
         terminal.loadAddon(webglAddon);
+        rendererAddonRef.current = webglAddon;
       } catch (error) {
         console.warn('[xterm] WebGL failed, falling back to canvas:', error);
         try {
-          terminal.loadAddon(new CanvasAddon());
+          const canvasAddon = new CanvasAddon();
+          terminal.loadAddon(canvasAddon);
+          rendererAddonRef.current = canvasAddon;
         } catch {
           // DOM renderer is the default fallback
         }
       }
     } else if (terminalRenderer === 'canvas') {
       try {
-        terminal.loadAddon(new CanvasAddon());
+        const canvasAddon = new CanvasAddon();
+        terminal.loadAddon(canvasAddon);
+        rendererAddonRef.current = canvasAddon;
       } catch (error) {
         console.warn('[xterm] Canvas failed, using DOM renderer:', error);
       }
@@ -495,9 +506,11 @@ export function useXterm({
       if (ptyIdRef.current) {
         window.electronAPI.terminal.destroy(ptyIdRef.current);
       }
-      // Dispose link provider before terminal to prevent async callback errors
+      // Dispose addons before terminal to prevent async callback errors
       linkProviderDisposableRef.current?.dispose();
       linkProviderDisposableRef.current = null;
+      rendererAddonRef.current?.dispose();
+      rendererAddonRef.current = null;
       terminalRef.current?.dispose();
       terminalRef.current = null;
     };
