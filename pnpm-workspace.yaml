@@ -1,5 +1,6 @@
 onlyBuiltDependencies:
   - '@parcel/watcher'
+  - cloudflared
   - electron
   - electron-winstaller
   - esbuild

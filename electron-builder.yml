@@ -34,6 +34,17 @@ files:
   - "!node_modules/lucide-react/dist/*.mjs.map"
   - "!node_modules/lucide-react/dist/*.d.ts"
   - "!node_modules/lucide-react/dist/*.d.mts"
+  # Exclude lucide-react unused formats (keep esm only)
+  - "!node_modules/lucide-react/dist/cjs/**"
+  - "!node_modules/lucide-react/dist/umd/**"
+  # Exclude monaco-editor dev and min versions (keep esm only, saves ~42MB)
+  - "!node_modules/monaco-editor/dev/**"
+  - "!node_modules/monaco-editor/min/**"
+  # Exclude shiki unused themes and languages
+  - "!node_modules/shiki/dist/langs/**"
+  - "!node_modules/shiki/dist/themes/**"
+  - "!node_modules/@shikijs/langs/**"
+  - "!node_modules/@shikijs/themes/**"
 
 asar: true
 compression: maximum
