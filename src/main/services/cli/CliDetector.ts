@@ -104,8 +104,15 @@ class CliDetector {
 
     console.log('[CliDetector] shell:', shell, 'args:', args);
     console.log('[CliDetector] fullCommand:', fullCommand);
-    const { stdout } = await execAsync(fullCommand, { timeout, env });
-    return stdout;
+    try {
+      const { stdout, stderr } = await execAsync(fullCommand, { timeout, env });
+      console.log('[CliDetector] stdout:', stdout);
+      if (stderr) console.log('[CliDetector] stderr:', stderr);
+      return stdout;
+    } catch (error) {
+      console.log('[CliDetector] error:', error);
+      throw error;
+    }
   }
 
   private async detectBuiltin(config: BuiltinAgentConfig): Promise<AgentCliInfo> {
