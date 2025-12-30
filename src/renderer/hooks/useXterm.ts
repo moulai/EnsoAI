@@ -7,6 +7,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal } from '@xterm/xterm';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { defaultDarkTheme, getXtermTheme } from '@/lib/ghosttyTheme';
+import { matchesKeybinding } from '@/lib/keybinding';
 import { useNavigationStore } from '@/stores/navigation';
 import { useSettingsStore } from '@/stores/settings';
 import '@xterm/xterm/css/xterm.css';
@@ -83,6 +84,7 @@ function useTerminalSettings() {
     terminalFontWeight,
     terminalFontWeightBold,
     terminalScrollback,
+    agentKeybindings,
   } = useSettingsStore();
 
   const theme = useMemo(() => {
@@ -96,6 +98,7 @@ function useTerminalSettings() {
     fontWeight: terminalFontWeight,
     fontWeightBold: terminalFontWeightBold,
     scrollback: terminalScrollback,
+    agentKeybindings,
   };
 }
 
@@ -351,14 +354,13 @@ export function useXterm({
 
     // Custom key handler
     terminal.attachCustomKeyEventHandler((event) => {
-      // Let tab management shortcuts bubble up to window handlers
-      // Only match exact modifier combinations (no extra Shift/Alt)
-      // Cmd/Ctrl+T (new tab), Cmd/Ctrl+W (close tab), Ctrl+[ (prev tab), Ctrl+] (next tab)
+      // Let agent session shortcuts bubble up to window handlers
+      // Check against configured keybindings instead of hardcoded keys
       if (
-        (event.ctrlKey || event.metaKey) &&
-        !event.shiftKey &&
-        !event.altKey &&
-        ['t', 'w', '[', ']'].includes(event.key)
+        matchesKeybinding(event, settings.agentKeybindings.newSession) ||
+        matchesKeybinding(event, settings.agentKeybindings.closeSession) ||
+        matchesKeybinding(event, settings.agentKeybindings.nextSession) ||
+        matchesKeybinding(event, settings.agentKeybindings.prevSession)
       ) {
         return false;
       }
