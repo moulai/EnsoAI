@@ -47,6 +47,7 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
   const { t } = useI18n();
   const [state, setState] = useState<TerminalState>(createInitialState);
   const { tabs, activeIds } = state;
+
   const inputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -56,7 +57,9 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
   const { setTerminalCount, registerTerminalCloseHandler } = useWorktreeActivityStore();
 
   // Get tabs for current worktree
-  const currentTabs = useMemo(() => tabs.filter((t) => cwd && pathsEqual(t.cwd, cwd)), [tabs, cwd]);
+  const currentTabs = useMemo(() => {
+    return tabs.filter((t) => cwd && pathsEqual(t.cwd, cwd));
+  }, [tabs, cwd]);
   const activeId = cwd ? activeIds[normalizePath(cwd)] || null : null;
 
   // Stable terminal IDs - only append, never reorder (prevents DOM reordering issues with xterm)
@@ -341,106 +344,97 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
     [draggedId]
   );
 
-  // Empty state when no terminals for current worktree
-  if (currentTabs.length === 0) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-muted-foreground">
-        <Terminal className="h-12 w-12 opacity-50" />
-        <p className="text-sm">{t('No terminals open')}</p>
-        <Button variant="outline" size="sm" onClick={handleNewTab}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t('New Terminal')}
-        </Button>
-      </div>
-    );
-  }
+  // Check if current worktree has no terminals
+  const hasNoCurrentTabs = currentTabs.length === 0;
 
   return (
     <div className="flex h-full w-full flex-col">
       {/* Tab Bar - only show current worktree's tabs */}
-      <div className="flex h-9 items-center border-b border-border bg-background/50 backdrop-blur-sm">
-        <div className="flex flex-1 items-center overflow-x-auto" onDoubleClick={handleNewTab}>
-          {currentTabs.map((tab) => {
-            const isTabActive = activeId === tab.id;
-            const isDragging = draggedId === tab.id;
-            const isDropTarget = dropTargetId === tab.id;
-            return (
-              <div
-                key={tab.id}
-                draggable={editingId !== tab.id}
-                onDragStart={(e) => handleDragStart(e, tab.id)}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => handleDragOver(e, tab.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, tab.id)}
-                onClick={() => handleSelectTab(tab.id)}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  handleStartEdit(tab);
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && handleSelectTab(tab.id)}
-                role="button"
-                tabIndex={0}
-                className={cn(
-                  'group relative flex h-9 min-w-[120px] max-w-[180px] items-center gap-2 border-r border-border px-3 text-sm transition-colors cursor-grab',
-                  isTabActive
-                    ? 'bg-background text-foreground'
-                    : 'bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-                  isDragging && 'opacity-50',
-                  isDropTarget && 'ring-2 ring-primary ring-inset'
-                )}
-              >
-                <List className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                {editingId === tab.id ? (
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    onBlur={handleFinishEdit}
-                    onKeyDown={handleKeyDown}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex-1 min-w-0 bg-transparent outline-none border-b border-current text-sm"
-                  />
-                ) : (
-                  <span className="flex-1 truncate">
-                    {tab.userEdited ? tab.name : tab.title || tab.name}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={(e) => {
+      {!hasNoCurrentTabs && (
+        <div className="flex h-9 items-center border-b border-border bg-background/50 backdrop-blur-sm">
+          <div className="flex flex-1 items-center overflow-x-auto" onDoubleClick={handleNewTab}>
+            {currentTabs.map((tab) => {
+              const isTabActive = activeId === tab.id;
+              const isDragging = draggedId === tab.id;
+              const isDropTarget = dropTargetId === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  draggable={editingId !== tab.id}
+                  onDragStart={(e) => handleDragStart(e, tab.id)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => handleDragOver(e, tab.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, tab.id)}
+                  onClick={() => handleSelectTab(tab.id)}
+                  onDoubleClick={(e) => {
                     e.stopPropagation();
-                    handleCloseTab(tab.id);
+                    handleStartEdit(tab);
                   }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSelectTab(tab.id)}
+                  role="button"
+                  tabIndex={0}
                   className={cn(
-                    'flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors',
-                    'hover:bg-destructive/20 hover:text-destructive',
-                    !isTabActive && 'opacity-0 group-hover:opacity-100'
+                    'group relative flex h-9 min-w-[120px] max-w-[180px] items-center gap-2 border-r border-border px-3 text-sm transition-colors cursor-grab',
+                    isTabActive
+                      ? 'bg-background text-foreground'
+                      : 'bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                    isDragging && 'opacity-50',
+                    isDropTarget && 'ring-2 ring-primary ring-inset'
                   )}
                 >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-                {isTabActive && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  <List className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                  {editingId === tab.id ? (
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onBlur={handleFinishEdit}
+                      onKeyDown={handleKeyDown}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 min-w-0 bg-transparent outline-none border-b border-current text-sm"
+                    />
+                  ) : (
+                    <span className="flex-1 truncate">
+                      {tab.userEdited ? tab.name : tab.title || tab.name}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCloseTab(tab.id);
+                    }}
+                    className={cn(
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors',
+                      'hover:bg-destructive/20 hover:text-destructive',
+                      !isTabActive && 'opacity-0 group-hover:opacity-100'
+                    )}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                  {isTabActive && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-        {/* New Tab Button */}
-        <div className="flex items-center border-l border-border px-1">
-          <button
-            type="button"
-            onClick={handleNewTab}
-            className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            title={t('New Terminal')}
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          {/* New Tab Button */}
+          <div className="flex items-center border-l border-border px-1">
+            <button
+              type="button"
+              onClick={handleNewTab}
+              className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              title={t('New Terminal')}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Terminal Content - render all worktrees' terminals to keep them mounted */}
       {/* Use opacity-0 instead of invisible to avoid WebGL rendering artifacts */}
@@ -449,7 +443,7 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
           const tab = tabs.find((t) => t.id === id);
           if (!tab) return null;
           // Only show terminal if panel is active, belongs to current worktree AND is the active tab
-          const isTerminalActive = isActive && cwd && pathsEqual(tab.cwd, cwd) && activeId === id;
+          const isTerminalActive = isActive && !!cwd && pathsEqual(tab.cwd, cwd) && activeId === id;
           return (
             <div
               key={id}
@@ -468,6 +462,18 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
             </div>
           );
         })}
+
+        {/* Empty state overlay when current worktree has no terminals */}
+        {hasNoCurrentTabs && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground bg-background">
+            <Terminal className="h-12 w-12 opacity-50" />
+            <p className="text-sm">{t('No terminals open')}</p>
+            <Button variant="outline" size="sm" onClick={handleNewTab}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('New Terminal')}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

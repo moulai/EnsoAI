@@ -430,68 +430,8 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
     handleSelectSession,
   ]);
 
-  // Empty state when no sessions for current worktree
-  if (currentWorktreeSessions.length === 0) {
-    return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-muted-foreground">
-        <Sparkles className="h-12 w-12 opacity-50" />
-        <p className="text-sm">{t('No agent sessions')}</p>
-        <div
-          className="relative"
-          onMouseEnter={() => setShowAgentMenu(true)}
-          onMouseLeave={() => setShowAgentMenu(false)}
-        >
-          <Button variant="outline" size="sm" onClick={handleNewSession}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t('New Session')}
-          </Button>
-          {showAgentMenu && enabledAgents.length > 0 && (
-            <div className="absolute left-1/2 -translate-x-1/2 top-full pt-1 z-50 min-w-40">
-              <div className="rounded-lg border bg-popover p-1 shadow-lg">
-                <div className="px-2 py-1 text-xs text-muted-foreground">{t('Select Agent')}</div>
-                {enabledAgents.map((agentId) => {
-                  const isHapi = agentId.endsWith('-hapi');
-                  const isHappy = agentId.endsWith('-happy');
-                  const baseId = isHapi
-                    ? agentId.slice(0, -5)
-                    : isHappy
-                      ? agentId.slice(0, -6)
-                      : agentId;
-                  const customAgent = customAgents.find((a) => a.id === baseId);
-                  const baseName = customAgent?.name ?? AGENT_INFO[baseId]?.name ?? baseId;
-                  const name = isHapi
-                    ? `${baseName} (Hapi)`
-                    : isHappy
-                      ? `${baseName} (Happy)`
-                      : baseName;
-                  const isDefault = agentSettings[agentId]?.isDefault;
-                  return (
-                    <button
-                      type="button"
-                      key={agentId}
-                      onClick={() => {
-                        handleNewSessionWithAgent(
-                          agentId,
-                          customAgent?.command ?? AGENT_INFO[baseId]?.command ?? 'claude'
-                        );
-                        setShowAgentMenu(false);
-                      }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <span>{name}</span>
-                      {isDefault && (
-                        <span className="text-xs text-muted-foreground">{t('(default)')}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  // Check if current worktree has no sessions
+  const hasNoCurrentSessions = currentWorktreeSessions.length === 0;
 
   return (
     <div className="relative h-full w-full">
@@ -525,17 +465,80 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
         );
       })}
 
+      {/* Empty state overlay when current worktree has no sessions */}
+      {hasNoCurrentSessions && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground bg-background">
+          <Sparkles className="h-12 w-12 opacity-50" />
+          <p className="text-sm">{t('No agent sessions')}</p>
+          <div
+            className="relative"
+            onMouseEnter={() => setShowAgentMenu(true)}
+            onMouseLeave={() => setShowAgentMenu(false)}
+          >
+            <Button variant="outline" size="sm" onClick={handleNewSession}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t('New Session')}
+            </Button>
+            {showAgentMenu && enabledAgents.length > 0 && (
+              <div className="absolute left-1/2 -translate-x-1/2 top-full pt-1 z-50 min-w-40">
+                <div className="rounded-lg border bg-popover p-1 shadow-lg">
+                  <div className="px-2 py-1 text-xs text-muted-foreground">{t('Select Agent')}</div>
+                  {enabledAgents.map((agentId) => {
+                    const isHapi = agentId.endsWith('-hapi');
+                    const isHappy = agentId.endsWith('-happy');
+                    const baseId = isHapi
+                      ? agentId.slice(0, -5)
+                      : isHappy
+                        ? agentId.slice(0, -6)
+                        : agentId;
+                    const customAgent = customAgents.find((a) => a.id === baseId);
+                    const baseName = customAgent?.name ?? AGENT_INFO[baseId]?.name ?? baseId;
+                    const name = isHapi
+                      ? `${baseName} (Hapi)`
+                      : isHappy
+                        ? `${baseName} (Happy)`
+                        : baseName;
+                    const isDefault = agentSettings[agentId]?.isDefault;
+                    return (
+                      <button
+                        type="button"
+                        key={agentId}
+                        onClick={() => {
+                          handleNewSessionWithAgent(
+                            agentId,
+                            customAgent?.command ?? AGENT_INFO[baseId]?.command ?? 'claude'
+                          );
+                          setShowAgentMenu(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <span>{name}</span>
+                        {isDefault && (
+                          <span className="text-xs text-muted-foreground">{t('(default)')}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Floating session bar - shows only current worktree's sessions */}
-      <SessionBar
-        sessions={currentWorktreeSessions}
-        activeSessionId={activeSessionId}
-        onSelectSession={handleSelectSession}
-        onCloseSession={handleCloseSession}
-        onNewSession={handleNewSession}
-        onNewSessionWithAgent={handleNewSessionWithAgent}
-        onRenameSession={handleRenameSession}
-        onReorderSessions={handleReorderSessions}
-      />
+      {!hasNoCurrentSessions && (
+        <SessionBar
+          sessions={currentWorktreeSessions}
+          activeSessionId={activeSessionId}
+          onSelectSession={handleSelectSession}
+          onCloseSession={handleCloseSession}
+          onNewSession={handleNewSession}
+          onNewSessionWithAgent={handleNewSessionWithAgent}
+          onRenameSession={handleRenameSession}
+          onReorderSessions={handleReorderSessions}
+        />
+      )}
     </div>
   );
 }

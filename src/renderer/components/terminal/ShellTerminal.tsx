@@ -19,6 +19,7 @@ export function ShellTerminal({
   onTitleChange,
 }: ShellTerminalProps) {
   const { t } = useI18n();
+
   const {
     containerRef,
     isLoading,
