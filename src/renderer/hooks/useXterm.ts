@@ -1,4 +1,3 @@
-import { CanvasAddon } from '@xterm/addon-canvas';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
@@ -214,41 +213,20 @@ export function useXterm({
         webglAddon.onContextLoss(() => {
           // Guard against disposed terminal
           if (terminalRef.current && rendererAddonRef.current === webglAddon) {
-            console.warn('[xterm] WebGL context lost, falling back to canvas');
+            console.warn('[xterm] WebGL context lost, falling back to DOM renderer');
             webglAddon.dispose();
-            try {
-              const canvasAddon = new CanvasAddon();
-              terminalRef.current.loadAddon(canvasAddon);
-              rendererAddonRef.current = canvasAddon;
-            } catch (e) {
-              console.warn('[xterm] Failed to fallback to canvas:', e);
-              // Fallback to DOM renderer (no addon)
-              rendererAddonRef.current = null;
-            }
+            rendererAddonRef.current = null;
           }
         });
         terminal.loadAddon(webglAddon);
         rendererAddonRef.current = webglAddon;
       } catch (error) {
-        console.warn('[xterm] WebGL failed, falling back to canvas:', error);
-        try {
-          const canvasAddon = new CanvasAddon();
-          terminal.loadAddon(canvasAddon);
-          rendererAddonRef.current = canvasAddon;
-        } catch {
-          // DOM renderer is the default fallback
-        }
-      }
-    } else if (renderer === 'canvas') {
-      try {
-        const canvasAddon = new CanvasAddon();
-        terminal.loadAddon(canvasAddon);
-        rendererAddonRef.current = canvasAddon;
-      } catch (error) {
-        console.warn('[xterm] Canvas failed, using DOM renderer:', error);
+        console.warn('[xterm] WebGL failed, falling back to DOM renderer:', error);
+        rendererAddonRef.current = null;
       }
     }
-    // 'dom' uses the default renderer, no addon needed
+    // 'dom' or 'canvas' uses the default DOM renderer, no addon needed
+    // Note: 'canvas' support is removed in favor of DOM as legacy fallback
 
     // Trigger refresh to ensure render
     terminal.refresh(0, terminal.rows - 1);
