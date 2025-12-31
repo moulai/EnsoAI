@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useI18n } from '@/i18n';
 
 interface NewItemDialogProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface NewItemDialogProps {
 }
 
 export function NewItemDialog({ isOpen, type, onConfirm, onCancel }: NewItemDialogProps) {
+  const { t } = useI18n();
   const [name, setName] = useState('');
 
   useEffect(() => {
@@ -28,7 +30,9 @@ export function NewItemDialog({ isOpen, type, onConfirm, onCancel }: NewItemDial
     }
   }, [isOpen]);
 
-  const title = type === 'file' ? 'New File' : 'New Folder';
+  const title = type === 'file' ? t('New File') : t('New Folder');
+  const description =
+    type === 'file' ? t('Enter a name for the new file.') : t('Enter a name for the new folder.');
   const placeholder = type === 'file' ? 'filename.ts' : 'folder-name';
 
   const handleKeyDown = useCallback(
@@ -45,9 +49,7 @@ export function NewItemDialog({ isOpen, type, onConfirm, onCancel }: NewItemDial
       <DialogPopup>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            Enter a name for the new {type === 'file' ? 'file' : 'folder'}.
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogPanel>
           <Input
@@ -59,9 +61,9 @@ export function NewItemDialog({ isOpen, type, onConfirm, onCancel }: NewItemDial
           />
         </DialogPanel>
         <DialogFooter variant="bare">
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>{t('Cancel')}</DialogClose>
           <Button onClick={() => name.trim() && onConfirm(name.trim())} disabled={!name.trim()}>
-            Create
+            {t('Create')}
           </Button>
         </DialogFooter>
       </DialogPopup>

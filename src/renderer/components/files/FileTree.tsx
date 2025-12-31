@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Menu, MenuItem, MenuPopup, MenuSeparator } from '@/components/ui/menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { FileTreeNode } from '@/hooks/useFileTree';
+import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { getFileIcon, getFileIconColor } from './fileIcons';
 
@@ -46,6 +47,7 @@ export function FileTree({
   isLoading,
   rootPath,
 }: FileTreeProps) {
+  const { t } = useI18n();
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [selectedNode, setSelectedNode] = useState<{ path: string; isDirectory: boolean } | null>(
@@ -92,7 +94,7 @@ export function FileTree({
   if (tree.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-        <p className="text-sm">No files</p>
+        <p className="text-sm">{t('No files')}</p>
         {rootPath && (
           <div className="flex gap-2">
             <button
@@ -101,7 +103,7 @@ export function FileTree({
               className="flex items-center gap-1 text-xs hover:text-foreground"
             >
               <FilePlus className="h-3 w-3" />
-              New File
+              {t('New File')}
             </button>
             <button
               type="button"
@@ -109,7 +111,7 @@ export function FileTree({
               className="flex items-center gap-1 text-xs hover:text-foreground"
             >
               <FolderPlus className="h-3 w-3" />
-              New Folder
+              {t('New Folder')}
             </button>
           </div>
         )}
@@ -129,7 +131,7 @@ export function FileTree({
               if (targetPath) onCreateFile(targetPath);
             }}
             className="p-1 text-muted-foreground hover:text-foreground rounded"
-            title="New File"
+            title={t('New File')}
           >
             <FilePlus className="h-4 w-4" />
           </button>
@@ -140,7 +142,7 @@ export function FileTree({
               if (targetPath) onCreateDirectory(targetPath);
             }}
             className="p-1 text-muted-foreground hover:text-foreground rounded"
-            title="New Folder"
+            title={t('New Folder')}
           >
             <FolderPlus className="h-4 w-4" />
           </button>
@@ -148,7 +150,7 @@ export function FileTree({
             type="button"
             onClick={onRefresh}
             className="p-1 text-muted-foreground hover:text-foreground rounded"
-            title="Refresh"
+            title={t('Refresh')}
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -157,7 +159,7 @@ export function FileTree({
               type="button"
               onClick={onOpenSearch}
               className="p-1 text-muted-foreground hover:text-foreground rounded"
-              title="Search"
+              title={t('Search')}
             >
               <Search className="h-4 w-4" />
             </button>
@@ -253,6 +255,7 @@ function FileTreeNodeComponent({
   onDelete,
   onCopyPath,
 }: FileTreeNodeComponentProps) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
@@ -361,27 +364,27 @@ function FileTreeNodeComponent({
             <>
               <MenuItem onClick={() => onCreateFile(actualNode.path)}>
                 <FilePlus className="h-4 w-4" />
-                New File
+                {t('New File')}
               </MenuItem>
               <MenuItem onClick={() => onCreateDirectory(actualNode.path)}>
                 <FolderPlus className="h-4 w-4" />
-                New Folder
+                {t('New Folder')}
               </MenuItem>
               <MenuSeparator />
             </>
           )}
           <MenuItem onClick={() => onStartRename(actualNode.path, actualNode.name)}>
             <Pencil className="h-4 w-4" />
-            Rename
+            {t('Rename')}
           </MenuItem>
           <MenuItem onClick={() => onCopyPath(actualNode.path)}>
             <Copy className="h-4 w-4" />
-            Copy Path
+            {t('Copy Path')}
           </MenuItem>
           <MenuSeparator />
           <MenuItem variant="destructive" onClick={() => onDelete(actualNode.path)}>
             <Trash2 className="h-4 w-4" />
-            Delete
+            {t('Delete')}
           </MenuItem>
         </MenuPopup>
       </Menu>
