@@ -88,6 +88,7 @@ export function EditorArea({
   const selectionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectionWidgetRef = useRef<monaco.editor.IContentWidget | null>(null);
   const widgetRootRef = useRef<Root | null>(null);
+  const widgetPositionRef = useRef<monaco.IPosition | null>(null);
   const hasPendingAutoSaveRef = useRef(false);
   const blurDisposableRef = useRef<monaco.IDisposable | null>(null);
   const activeTabPathRef = useRef<string | null>(null);
@@ -378,9 +379,22 @@ export function EditorArea({
       };
     }
 
+    // Clean up any stale widget from previous effect run
+    if (selectionWidgetRef.current) {
+      try {
+        editor.removeContentWidget(selectionWidgetRef.current);
+      } catch {
+        // Ignore if already removed
+      }
+      selectionWidgetRef.current = null;
+      widgetPositionRef.current = null;
+    }
+
     // Create selection action widget
     const widgetDomNode = document.createElement('div');
     widgetDomNode.className = 'monaco-selection-widget';
+    // Ensure widget is visible above other Monaco overlays
+    widgetDomNode.style.zIndex = '100';
 
     const sendToClaudeHandler = () => {
       const selection = editor.getSelection();
@@ -406,6 +420,7 @@ export function EditorArea({
       if (selectionWidgetRef.current) {
         editor.removeContentWidget(selectionWidgetRef.current);
         selectionWidgetRef.current = null;
+        widgetPositionRef.current = null;
       }
     };
 
@@ -426,18 +441,16 @@ export function EditorArea({
       </button>
     );
 
-    let currentPosition: monaco.IPosition | null = null;
-
     const selectionWidget: monaco.editor.IContentWidget = {
       getId: () => 'selection.action.widget',
       getDomNode: () => widgetDomNode,
       getPosition: () =>
-        currentPosition
+        widgetPositionRef.current
           ? {
-              position: currentPosition,
+              position: widgetPositionRef.current,
               preference: [
-                m.editor.ContentWidgetPositionPreference.ABOVE,
                 m.editor.ContentWidgetPositionPreference.BELOW,
+                m.editor.ContentWidgetPositionPreference.ABOVE,
               ],
             }
           : null,
@@ -454,17 +467,23 @@ export function EditorArea({
 
       // Show/hide selection widget
       if (!selection.isEmpty() && selectedText.trim().length > 0) {
-        currentPosition = selection.getEndPosition();
+        // Use positionLineNumber/positionColumn for actual cursor position
+        widgetPositionRef.current = {
+          lineNumber: selection.positionLineNumber,
+          column: selection.positionColumn,
+        };
         if (!selectionWidgetRef.current) {
           selectionWidgetRef.current = selectionWidget;
           editor.addContentWidget(selectionWidget);
         } else {
-          editor.layoutContentWidget(selectionWidget);
+          // Widget already exists, just update layout
+          editor.layoutContentWidget(selectionWidgetRef.current);
         }
       } else {
         if (selectionWidgetRef.current) {
           editor.removeContentWidget(selectionWidgetRef.current);
           selectionWidgetRef.current = null;
+          widgetPositionRef.current = null;
         }
       }
 
@@ -497,9 +516,16 @@ export function EditorArea({
     return () => {
       cursorDisposable.dispose();
       selectionDisposable.dispose();
-      if (selectionWidgetRef.current) {
-        editor.removeContentWidget(selectionWidgetRef.current);
+      // Use ref to get current editor instance, as the closure's editor may be stale
+      const currentEditor = editorRef.current;
+      if (selectionWidgetRef.current && currentEditor) {
+        try {
+          currentEditor.removeContentWidget(selectionWidgetRef.current);
+        } catch {
+          // Editor may have been disposed, ignore
+        }
         selectionWidgetRef.current = null;
+        widgetPositionRef.current = null;
       }
       if (widgetRootRef.current) {
         widgetRootRef.current.unmount();
