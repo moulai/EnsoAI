@@ -121,11 +121,11 @@ export function ShellTerminal({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !isActive) return;
+    if (!container) return;
 
     container.addEventListener('contextmenu', handleContextMenu);
     return () => container.removeEventListener('contextmenu', handleContextMenu);
-  }, [isActive, handleContextMenu, containerRef]);
+  }, [handleContextMenu, containerRef]);
 
   return (
     <div

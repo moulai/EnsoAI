@@ -4,6 +4,7 @@ import { matchesKeybinding } from '@/lib/keybinding';
 import { useSettingsStore } from '@/stores/settings';
 import { useWorktreeActivityStore } from '@/stores/worktreeActivity';
 import { ResizeHandle } from './ResizeHandle';
+import { ShellTerminal } from './ShellTerminal';
 import { TerminalGroup } from './TerminalGroup';
 import type { TerminalGroup as TerminalGroupType, TerminalTab } from './types';
 import { getNextTabName } from './types';
@@ -33,6 +34,8 @@ type WorktreeGroupStates = Record<string, GroupState>;
 
 export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
   const [worktreeStates, setWorktreeStates] = useState<WorktreeGroupStates>({});
+  // Global terminal IDs to keep terminals mounted across group moves
+  const [globalTerminalIds, setGlobalTerminalIds] = useState<Set<string>>(new Set());
   const terminalKeybindings = useSettingsStore((state) => state.terminalKeybindings);
   const { setTerminalCount, registerTerminalCloseHandler } = useWorktreeActivityStore();
 
@@ -51,6 +54,29 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
     const totalTabs = groups.reduce((sum, g) => sum + g.tabs.length, 0);
     setTerminalCount(cwd, totalTabs);
   }, [groups, cwd, setTerminalCount]);
+
+  // Maintain global terminal IDs - only add new ones, never remove while tab exists
+  useEffect(() => {
+    const allTabIds = Object.values(worktreeStates).flatMap((state) =>
+      state.groups.flatMap((g) => g.tabs.map((t) => t.id))
+    );
+    const allTabIdSet = new Set(allTabIds);
+
+    setGlobalTerminalIds((prev) => {
+      const next = new Set(prev);
+      // Add new terminals
+      for (const id of allTabIds) {
+        next.add(id);
+      }
+      // Remove terminals that no longer exist
+      for (const id of next) {
+        if (!allTabIdSet.has(id)) {
+          next.delete(id);
+        }
+      }
+      return next;
+    });
+  }, [worktreeStates]);
 
   // Register close handler for external close requests
   useEffect(() => {
@@ -116,7 +142,101 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
     [updateCurrentState]
   );
 
+  // Handle terminal title change
+  const handleTitleChange = useCallback((tabId: string, title: string) => {
+    setWorktreeStates((prev) => {
+      // Find which worktree and group contains this tab
+      for (const [path, state] of Object.entries(prev)) {
+        for (const group of state.groups) {
+          const tab = group.tabs.find((t) => t.id === tabId);
+          if (tab) {
+            return {
+              ...prev,
+              [path]: {
+                ...state,
+                groups: state.groups.map((g) =>
+                  g.id === group.id
+                    ? {
+                        ...g,
+                        tabs: g.tabs.map((t) => (t.id === tabId ? { ...t, title } : t)),
+                      }
+                    : g
+                ),
+              },
+            };
+          }
+        }
+      }
+      return prev;
+    });
+  }, []);
+
+  // Handle terminal close
+  const handleTerminalClose = useCallback((tabId: string) => {
+    setWorktreeStates((prev) => {
+      // Find which worktree and group contains this tab
+      for (const [path, state] of Object.entries(prev)) {
+        for (const group of state.groups) {
+          const tabIndex = group.tabs.findIndex((t) => t.id === tabId);
+          if (tabIndex !== -1) {
+            const newTabs = group.tabs.filter((t) => t.id !== tabId);
+
+            // If group becomes empty, remove it
+            if (newTabs.length === 0) {
+              const newGroups = state.groups.filter((g) => g.id !== group.id);
+
+              if (newGroups.length === 0) {
+                // Remove worktree state entirely
+                const newStates = { ...prev };
+                delete newStates[path];
+                return newStates;
+              }
+
+              const newFlexPercents = newGroups.map(() => 100 / newGroups.length);
+              let newActiveGroupId = state.activeGroupId;
+              if (state.activeGroupId === group.id) {
+                const removedIndex = state.groups.findIndex((g) => g.id === group.id);
+                const newIndex = Math.min(removedIndex, newGroups.length - 1);
+                newActiveGroupId = newGroups[newIndex]?.id || null;
+              }
+
+              return {
+                ...prev,
+                [path]: {
+                  ...state,
+                  groups: newGroups,
+                  activeGroupId: newActiveGroupId,
+                  flexPercents: newFlexPercents,
+                },
+              };
+            }
+
+            // Update active tab if needed
+            let newActiveTabId = group.activeTabId;
+            if (group.activeTabId === tabId) {
+              const newIndex = Math.min(tabIndex, newTabs.length - 1);
+              newActiveTabId = newTabs[newIndex].id;
+            }
+
+            return {
+              ...prev,
+              [path]: {
+                ...state,
+                groups: state.groups.map((g) =>
+                  g.id === group.id ? { ...g, tabs: newTabs, activeTabId: newActiveTabId } : g
+                ),
+              },
+            };
+          }
+        }
+      }
+      return prev;
+    });
+  }, []);
+
   // Handle split - create new group to the right
+  // If source group has multiple tabs, move the active tab to new group
+  // If source group has only 1 tab, create a new terminal in new group
   const handleSplit = useCallback(
     (fromGroupId: string) => {
       if (!cwd) return;
@@ -125,6 +245,45 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
         const fromIndex = state.groups.findIndex((g) => g.id === fromGroupId);
         if (fromIndex === -1) return state;
 
+        const sourceGroup = state.groups[fromIndex];
+
+        // If source group has multiple tabs, move the active tab to new group
+        if (sourceGroup.tabs.length > 1 && sourceGroup.activeTabId) {
+          const tabToMove = sourceGroup.tabs.find((t) => t.id === sourceGroup.activeTabId);
+          if (!tabToMove) return state;
+
+          // Remove tab from source group
+          const newSourceTabs = sourceGroup.tabs.filter((t) => t.id !== sourceGroup.activeTabId);
+          const closedIndex = sourceGroup.tabs.findIndex((t) => t.id === sourceGroup.activeTabId);
+          const newSourceActiveIndex = Math.min(closedIndex, newSourceTabs.length - 1);
+          const newSourceActiveTabId = newSourceTabs[newSourceActiveIndex]?.id || null;
+
+          // Create new group with the moved tab
+          const newGroup: TerminalGroupType = {
+            id: crypto.randomUUID(),
+            tabs: [tabToMove],
+            activeTabId: tabToMove.id,
+          };
+
+          const newGroups = state.groups.map((g) =>
+            g.id === fromGroupId
+              ? { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveTabId }
+              : g
+          );
+          newGroups.splice(fromIndex + 1, 0, newGroup);
+
+          // Recalculate flex percentages evenly
+          const newFlexPercents = newGroups.map(() => 100 / newGroups.length);
+
+          return {
+            ...state,
+            groups: newGroups,
+            activeGroupId: newGroup.id,
+            flexPercents: newFlexPercents,
+          };
+        }
+
+        // Source group has only 1 tab, create a new terminal in new group
         const newGroup: TerminalGroupType = {
           id: crypto.randomUUID(),
           tabs: [
@@ -200,6 +359,84 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
       return prev;
     });
   }, []);
+
+  // Handle moving a tab between groups
+  const handleTabMoveToGroup = useCallback(
+    (tabId: string, sourceGroupId: string, targetGroupId: string, targetIndex?: number) => {
+      updateCurrentState((state) => {
+        const sourceGroup = state.groups.find((g) => g.id === sourceGroupId);
+        const targetGroup = state.groups.find((g) => g.id === targetGroupId);
+        if (!sourceGroup || !targetGroup) return state;
+
+        // Find the tab in source group
+        const tab = sourceGroup.tabs.find((t) => t.id === tabId);
+        if (!tab) return state;
+
+        // Remove tab from source group
+        const newSourceTabs = sourceGroup.tabs.filter((t) => t.id !== tabId);
+
+        // Add tab to target group
+        const newTargetTabs = [...targetGroup.tabs];
+        if (targetIndex !== undefined && targetIndex >= 0) {
+          newTargetTabs.splice(targetIndex, 0, tab);
+        } else {
+          newTargetTabs.push(tab);
+        }
+
+        // Calculate new active tab for source group
+        let newSourceActiveTabId = sourceGroup.activeTabId;
+        if (sourceGroup.activeTabId === tabId) {
+          if (newSourceTabs.length > 0) {
+            const closedIndex = sourceGroup.tabs.findIndex((t) => t.id === tabId);
+            const newIndex = Math.min(closedIndex, newSourceTabs.length - 1);
+            newSourceActiveTabId = newSourceTabs[newIndex].id;
+          } else {
+            newSourceActiveTabId = null;
+          }
+        }
+
+        // If source group becomes empty, remove it
+        if (newSourceTabs.length === 0) {
+          const newGroups = state.groups
+            .filter((g) => g.id !== sourceGroupId)
+            .map((g) =>
+              g.id === targetGroupId ? { ...g, tabs: newTargetTabs, activeTabId: tabId } : g
+            );
+
+          // Recalculate flex percentages
+          const newFlexPercents = newGroups.map(() => 100 / newGroups.length);
+
+          // Update active group
+          let newActiveGroupId = state.activeGroupId;
+          if (state.activeGroupId === sourceGroupId) {
+            newActiveGroupId = targetGroupId;
+          }
+
+          return {
+            groups: newGroups,
+            activeGroupId: newActiveGroupId,
+            flexPercents: newFlexPercents,
+          };
+        }
+
+        // Update both groups
+        return {
+          ...state,
+          groups: state.groups.map((g) => {
+            if (g.id === sourceGroupId) {
+              return { ...g, tabs: newSourceTabs, activeTabId: newSourceActiveTabId };
+            }
+            if (g.id === targetGroupId) {
+              return { ...g, tabs: newTargetTabs, activeTabId: tabId };
+            }
+            return g;
+          }),
+          activeGroupId: targetGroupId,
+        };
+      });
+    },
+    [updateCurrentState]
+  );
 
   // Handle resize between groups
   const handleResize = useCallback(
@@ -371,41 +608,125 @@ export function TerminalPanel({ cwd, isActive = false }: TerminalPanelProps) {
     return null;
   }
 
+  // Helper to find tab info
+  const findTabInfo = (tabId: string) => {
+    for (const [worktreePath, state] of Object.entries(worktreeStates)) {
+      for (let groupIndex = 0; groupIndex < state.groups.length; groupIndex++) {
+        const group = state.groups[groupIndex];
+        const tab = group.tabs.find((t) => t.id === tabId);
+        if (tab) {
+          return { worktreePath, state, group, groupIndex, tab };
+        }
+      }
+    }
+    return null;
+  };
+
+  // Calculate cumulative left positions for groups
+  const getGroupPositions = (state: GroupState) => {
+    const positions: { left: number; width: number }[] = [];
+    let cumulative = 0;
+    for (const percent of state.flexPercents) {
+      positions.push({ left: cumulative, width: percent });
+      cumulative += percent;
+    }
+    return positions;
+  };
+
   return (
     <div className="relative h-full w-full">
-      {/* Render all worktrees' terminals to keep them mounted */}
+      {/* Render all worktrees' group structures (tab bars only) */}
       {Object.entries(worktreeStates).map(([worktreePath, state]) => {
         const isCurrentWorktree = worktreePath === normalizedCwd;
+        const groupPositions = getGroupPositions(state);
+
         return (
           <div
             key={worktreePath}
             className={
               isCurrentWorktree
-                ? 'flex h-full w-full'
+                ? 'relative h-full w-full'
                 : 'absolute inset-0 opacity-0 pointer-events-none'
             }
           >
-            {state.groups.map((group, index) => (
-              <div
-                key={group.id}
-                className="flex h-full"
-                style={{ flex: `0 0 ${state.flexPercents[index]}%` }}
-              >
-                <TerminalGroup
-                  group={group}
-                  cwd={worktreePath}
-                  isActive={isActive && isCurrentWorktree}
-                  isGroupActive={group.id === state.activeGroupId}
-                  onTabsChange={handleTabsChange}
-                  onGroupClick={() => handleGroupClick(group.id)}
-                  onSplit={() => handleSplit(group.id)}
-                  onGroupEmpty={handleGroupEmpty}
+            {/* Tab bars row - flex layout */}
+            <div className="flex h-9 w-full">
+              {state.groups.map((group, index) => (
+                <div
+                  key={group.id}
+                  className="h-full"
+                  style={{ flex: `0 0 ${state.flexPercents[index]}%` }}
+                >
+                  <TerminalGroup
+                    group={group}
+                    cwd={worktreePath}
+                    isGroupActive={group.id === state.activeGroupId}
+                    onTabsChange={handleTabsChange}
+                    onGroupClick={() => handleGroupClick(group.id)}
+                    onGroupEmpty={handleGroupEmpty}
+                    onTabMoveToGroup={handleTabMoveToGroup}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Resize handles - positioned absolutely with z-index above terminals */}
+            {state.groups.map((group, index) => {
+              if (index >= state.groups.length - 1) return null;
+              const leftPos = groupPositions
+                .slice(0, index + 1)
+                .reduce((sum, p) => sum + p.width, 0);
+              return (
+                <ResizeHandle
+                  key={`resize-${group.id}`}
+                  style={{ left: `${leftPos}%` }}
+                  onResize={(delta) => handleResize(index, delta)}
                 />
-                {index < state.groups.length - 1 && (
-                  <ResizeHandle onResize={(delta) => handleResize(index, delta)} />
-                )}
-              </div>
-            ))}
+              );
+            })}
+
+            {/* All terminals - rendered in a single container with stable keys */}
+            <div className="absolute left-0 right-0 bottom-0 z-0" style={{ top: 36 }}>
+              {Array.from(globalTerminalIds).map((tabId) => {
+                const info = findTabInfo(tabId);
+                if (!info) return null;
+                // Only render for this worktree
+                if (info.worktreePath !== worktreePath) return null;
+
+                const position = groupPositions[info.groupIndex];
+                if (!position) return null;
+
+                const isTabVisible = info.group.activeTabId === tabId;
+                const isTerminalActive =
+                  isActive &&
+                  isCurrentWorktree &&
+                  info.group.id === state.activeGroupId &&
+                  isTabVisible;
+
+                return (
+                  <div
+                    key={tabId}
+                    className={
+                      isTabVisible
+                        ? 'absolute h-full'
+                        : 'absolute h-full opacity-0 pointer-events-none'
+                    }
+                    style={{
+                      left: `${position.left}%`,
+                      width: `${position.width}%`,
+                    }}
+                  >
+                    <ShellTerminal
+                      cwd={info.tab.cwd}
+                      isActive={isTerminalActive}
+                      onExit={() => handleTerminalClose(tabId)}
+                      onTitleChange={(title) => handleTitleChange(tabId, title)}
+                      onSplit={() => handleSplit(info.group.id)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       })}

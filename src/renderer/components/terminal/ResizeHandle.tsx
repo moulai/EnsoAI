@@ -1,12 +1,14 @@
 import { GripVertical } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ResizeHandleProps {
   onResize: (deltaPercent: number) => void;
+  style?: CSSProperties;
 }
 
-export function ResizeHandle({ onResize }: ResizeHandleProps) {
+export function ResizeHandle({ onResize, style }: ResizeHandleProps) {
   const [isResizing, setIsResizing] = useState(false);
   const [startX, setStartX] = useState(0);
 
@@ -43,9 +45,10 @@ export function ResizeHandle({ onResize }: ResizeHandleProps) {
   return (
     <div
       className={cn(
-        'group flex w-1 shrink-0 cursor-col-resize items-center justify-center hover:bg-accent transition-colors',
+        'group absolute top-0 bottom-0 z-50 flex w-px -translate-x-1/2 shrink-0 cursor-col-resize items-center justify-center bg-border/50 hover:bg-accent transition-colors',
         isResizing && 'bg-accent'
       )}
+      style={style}
       onMouseDown={handleMouseDown}
     >
       <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100" />

@@ -1,32 +1,34 @@
 import { List, Plus, Terminal, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
-import { ShellTerminal } from './ShellTerminal';
 import type { TerminalGroup as TerminalGroupType, TerminalTab } from './types';
 import { getNextTabName } from './types';
 
 interface TerminalGroupProps {
   group: TerminalGroupType;
   cwd: string;
-  isActive: boolean;
   isGroupActive: boolean;
   onTabsChange: (groupId: string, tabs: TerminalTab[], activeTabId: string | null) => void;
   onGroupClick: () => void;
-  onSplit: () => void;
   onGroupEmpty: (groupId: string) => void;
+  onTabMoveToGroup?: (
+    tabId: string,
+    sourceGroupId: string,
+    targetGroupId: string,
+    targetIndex?: number
+  ) => void;
 }
 
 export function TerminalGroup({
   group,
   cwd,
-  isActive,
   isGroupActive,
   onTabsChange,
   onGroupClick,
-  onSplit,
   onGroupEmpty,
+  onTabMoveToGroup,
 }: TerminalGroupProps) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,19 +38,6 @@ export function TerminalGroup({
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const { tabs, activeTabId } = group;
-
-  // Stable terminal IDs for rendering
-  const [terminalIds, setTerminalIds] = useState<string[]>(() => tabs.map((t) => t.id));
-
-  useEffect(() => {
-    setTerminalIds((prev) => {
-      const currentIds = new Set(prev);
-      const tabIds = new Set(tabs.map((t) => t.id));
-      const newIds = tabs.filter((t) => !currentIds.has(t.id)).map((t) => t.id);
-      const filtered = prev.filter((id) => tabIds.has(id));
-      return newIds.length > 0 ? [...filtered, ...newIds] : filtered;
-    });
-  }, [tabs]);
 
   const handleNewTab = useCallback(() => {
     const newTab: TerminalTab = {
@@ -87,14 +76,6 @@ export function TerminalGroup({
     [group.id, tabs, onTabsChange, onGroupClick]
   );
 
-  const handleTitleChange = useCallback(
-    (id: string, title: string) => {
-      const newTabs = tabs.map((t) => (t.id === id ? { ...t, title } : t));
-      onTabsChange(group.id, newTabs, activeTabId);
-    },
-    [tabs, group.id, activeTabId, onTabsChange]
-  );
-
   const handleStartEdit = useCallback((tab: TerminalTab) => {
     setEditingId(tab.id);
     setEditingName(tab.name);
@@ -124,19 +105,31 @@ export function TerminalGroup({
     [handleFinishEdit]
   );
 
+  // State for cross-group drop indicator
+  const [isDropZoneActive, setIsDropZoneActive] = useState(false);
+
   // Drag and drop handlers
-  const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => {
-    setDraggedId(tabId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', tabId);
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '0.5';
-    }
-  }, []);
+  const handleDragStart = useCallback(
+    (e: React.DragEvent, tabId: string) => {
+      setDraggedId(tabId);
+      e.dataTransfer.effectAllowed = 'move';
+      // Store both tabId and groupId for cross-group drops
+      e.dataTransfer.setData(
+        'application/terminal-tab',
+        JSON.stringify({ tabId, groupId: group.id })
+      );
+      e.dataTransfer.setData('text/plain', tabId);
+      if (e.currentTarget instanceof HTMLElement) {
+        e.currentTarget.style.opacity = '0.5';
+      }
+    },
+    [group.id]
+  );
 
   const handleDragEnd = useCallback((e: React.DragEvent) => {
     setDraggedId(null);
     setDropTargetId(null);
+    setIsDropZoneActive(false);
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '1';
     }
@@ -146,7 +139,7 @@ export function TerminalGroup({
     (e: React.DragEvent, tabId: string) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      if (draggedId && tabId !== draggedId) {
+      if (tabId !== draggedId) {
         setDropTargetId(tabId);
       }
     },
@@ -160,32 +153,110 @@ export function TerminalGroup({
   const handleDrop = useCallback(
     (e: React.DragEvent, targetId: string) => {
       e.preventDefault();
-      if (!draggedId || draggedId === targetId) {
-        setDraggedId(null);
-        setDropTargetId(null);
-        return;
+      e.stopPropagation();
+
+      // Try to parse cross-group drag data
+      const dragData = e.dataTransfer.getData('application/terminal-tab');
+      if (dragData) {
+        try {
+          const { tabId, groupId: sourceGroupId } = JSON.parse(dragData);
+
+          // Cross-group move
+          if (sourceGroupId !== group.id && onTabMoveToGroup) {
+            const targetIndex = tabs.findIndex((t) => t.id === targetId);
+            onTabMoveToGroup(tabId, sourceGroupId, group.id, targetIndex);
+            setDraggedId(null);
+            setDropTargetId(null);
+            return;
+          }
+
+          // Same group reorder
+          if (tabId === targetId) {
+            setDraggedId(null);
+            setDropTargetId(null);
+            return;
+          }
+
+          const draggedIndex = tabs.findIndex((t) => t.id === tabId);
+          const targetIndex = tabs.findIndex((t) => t.id === targetId);
+          if (draggedIndex === -1 || targetIndex === -1) return;
+
+          const newTabs = [...tabs];
+          const [removed] = newTabs.splice(draggedIndex, 1);
+          newTabs.splice(targetIndex, 0, removed);
+          onTabsChange(group.id, newTabs, activeTabId);
+        } catch {
+          // Fallback to plain text
+        }
       }
-
-      const draggedIndex = tabs.findIndex((t) => t.id === draggedId);
-      const targetIndex = tabs.findIndex((t) => t.id === targetId);
-      if (draggedIndex === -1 || targetIndex === -1) return;
-
-      const newTabs = [...tabs];
-      const [removed] = newTabs.splice(draggedIndex, 1);
-      newTabs.splice(targetIndex, 0, removed);
-      onTabsChange(group.id, newTabs, activeTabId);
 
       setDraggedId(null);
       setDropTargetId(null);
     },
-    [draggedId, tabs, group.id, activeTabId, onTabsChange]
+    [tabs, group.id, activeTabId, onTabsChange, onTabMoveToGroup]
+  );
+
+  // Handle drop on empty area of tab bar (append to end)
+  const handleTabBarDragOver = useCallback((e: React.DragEvent) => {
+    // Only accept terminal-tab drops
+    if (e.dataTransfer.types.includes('application/terminal-tab')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setIsDropZoneActive(true);
+    }
+  }, []);
+
+  const handleTabBarDragLeave = useCallback((e: React.DragEvent) => {
+    // Only deactivate if leaving the container entirely
+    const rect = e.currentTarget.getBoundingClientRect();
+    const { clientX, clientY } = e;
+    if (
+      clientX < rect.left ||
+      clientX > rect.right ||
+      clientY < rect.top ||
+      clientY > rect.bottom
+    ) {
+      setIsDropZoneActive(false);
+    }
+  }, []);
+
+  const handleTabBarDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDropZoneActive(false);
+
+      const dragData = e.dataTransfer.getData('application/terminal-tab');
+      if (!dragData) return;
+
+      try {
+        const { tabId, groupId: sourceGroupId } = JSON.parse(dragData);
+
+        // Cross-group move to end
+        if (sourceGroupId !== group.id && onTabMoveToGroup) {
+          onTabMoveToGroup(tabId, sourceGroupId, group.id);
+          return;
+        }
+
+        // Same group - move to end
+        const draggedIndex = tabs.findIndex((t) => t.id === tabId);
+        if (draggedIndex === -1 || draggedIndex === tabs.length - 1) return;
+
+        const newTabs = [...tabs];
+        const [removed] = newTabs.splice(draggedIndex, 1);
+        newTabs.push(removed);
+        onTabsChange(group.id, newTabs, activeTabId);
+      } catch {
+        // Ignore parse errors
+      }
+    },
+    [tabs, group.id, activeTabId, onTabsChange, onTabMoveToGroup]
   );
 
   const hasNoTabs = tabs.length === 0;
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: click is supplementary, terminals inside handle focus
-    <div className="relative flex h-full w-full flex-col" onClick={onGroupClick}>
+    <div className="relative h-full w-full" onClick={onGroupClick}>
       {/* Inactive overlay */}
       {!isGroupActive && (
         <div className="absolute inset-0 z-10 bg-background/10 pointer-events-none" />
@@ -195,8 +266,12 @@ export function TerminalGroup({
         <div
           className={cn(
             'flex h-9 items-center border-b border-border',
-            isGroupActive ? 'bg-background/50' : 'bg-muted/30'
+            isGroupActive ? 'bg-background/50' : 'bg-muted/30',
+            isDropZoneActive && 'ring-2 ring-primary ring-inset'
           )}
+          onDragOver={handleTabBarDragOver}
+          onDragLeave={handleTabBarDragLeave}
+          onDrop={handleTabBarDrop}
         >
           <div className="flex flex-1 items-center overflow-x-auto" onDoubleClick={handleNewTab}>
             {tabs.map((tab) => {
@@ -288,45 +363,17 @@ export function TerminalGroup({
         </div>
       )}
 
-      {/* Terminal Content */}
-      <div className="relative flex-1">
-        {terminalIds.map((id) => {
-          const tab = tabs.find((t) => t.id === id);
-          if (!tab) return null;
-          // Terminal is visible if it's the active tab in this group
-          const isTabVisible = activeTabId === id;
-          // Terminal receives input only when panel, group, and tab are all active
-          const isTerminalActive = isActive && isGroupActive && isTabVisible;
-          return (
-            <div
-              key={id}
-              className={
-                isTabVisible ? 'h-full w-full' : 'absolute inset-0 opacity-0 pointer-events-none'
-              }
-            >
-              <ShellTerminal
-                cwd={tab.cwd}
-                isActive={isTerminalActive}
-                onExit={() => handleCloseTab(id)}
-                onTitleChange={(title) => handleTitleChange(id, title)}
-                onSplit={onSplit}
-              />
-            </div>
-          );
-        })}
-
-        {/* Empty state */}
-        {hasNoTabs && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground bg-background">
-            <Terminal className="h-12 w-12 opacity-50" />
-            <p className="text-sm">{t('No terminals open')}</p>
-            <Button variant="outline" size="sm" onClick={handleNewTab}>
-              <Plus className="mr-2 h-4 w-4" />
-              {t('New Terminal')}
-            </Button>
-          </div>
-        )}
-      </div>
+      {/* Empty state - shown when no tabs */}
+      {hasNoTabs && (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-muted-foreground bg-background">
+          <Terminal className="h-12 w-12 opacity-50" />
+          <p className="text-sm">{t('No terminals open')}</p>
+          <Button variant="outline" size="sm" onClick={handleNewTab}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('New Terminal')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
