@@ -1,6 +1,6 @@
 import type { AgentCliInfo, BuiltinAgentId, CustomAgent } from '@shared/types';
 import * as pty from 'node-pty';
-import { getShellForCommand } from '../../utils/shell';
+import { getEnvForCommand, getShellForCommand } from '../../utils/shell';
 
 // Detection timeout in milliseconds (increased for slow shells like PowerShell with -Login)
 const DETECT_TIMEOUT = 15000;
@@ -136,7 +136,11 @@ class CliDetector {
           cols: 80,
           rows: 24,
           cwd: process.env.HOME || process.env.USERPROFILE || '/',
-          env: process.env as Record<string, string>,
+          env: {
+            ...getEnvForCommand(),
+            TERM: 'xterm-256color',
+            COLORTERM: 'truecolor',
+          } as Record<string, string>,
         });
 
         // Collect output
