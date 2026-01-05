@@ -139,15 +139,10 @@ export function ShellTerminal({
 
   return (
     <div
-      className="relative h-full w-full"
+      className="relative h-full w-full px-[5px] py-[2px]"
       style={{ backgroundColor: settings.theme.background, contain: 'strict' }}
     >
-      {/* boxSizing: content-box fixes FitAddon calculation with padding (xterm.js#1283) */}
-      <div
-        ref={containerRef}
-        className="h-full w-full px-[5px] py-[2px]"
-        style={{ boxSizing: 'content-box' }}
-      />
+      <div ref={containerRef} className="h-full w-full" />
       <TerminalSearchBar
         ref={searchBarRef}
         isOpen={isSearchOpen}
