@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 import { readdir, stat } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
-import { rgPath } from '@vscode/ripgrep';
 import type {
   ContentSearchMatch,
   ContentSearchParams,
@@ -9,10 +8,13 @@ import type {
   FileSearchParams,
   FileSearchResult,
 } from '@shared/types';
+import { rgPath as originalRgPath } from '@vscode/ripgrep';
 
 const MAX_FILE_RESULTS = 100;
 const MAX_CONTENT_RESULTS = 500;
-const SEARCH_TIMEOUT_MS = 10000; // 10 seconds timeout for ripgrep
+const SEARCH_TIMEOUT_MS = 10000;
+
+const rgPath = originalRgPath.replace(/\.asar([\\/])/, '.asar.unpacked$1');
 
 // 模糊匹配分数计算
 function fuzzyMatch(query: string, target: string): number {
