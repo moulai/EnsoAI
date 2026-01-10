@@ -610,15 +610,29 @@ export default function App() {
     [activeWorktree, activeTab, worktreeTabMap]
   );
 
-  // Handle switching worktree by path (used by notification click)
   const handleSwitchWorktreePath = useCallback(
-    (worktreePath: string) => {
+    async (worktreePath: string) => {
       const worktree = worktrees.find((wt) => wt.path === worktreePath);
       if (worktree) {
         handleSelectWorktree(worktree);
+        return;
+      }
+
+      for (const repo of repositories) {
+        try {
+          const repoWorktrees = await window.electronAPI.worktree.list(repo.path);
+          const found = repoWorktrees.find((wt) => wt.path === worktreePath);
+          if (found) {
+            setSelectedRepo(repo.path);
+            setActiveWorktree(found);
+            const savedTab = worktreeTabMap[found.path] || 'chat';
+            setActiveTab(savedTab);
+            return;
+          }
+        } catch {}
       }
     },
-    [worktrees, handleSelectWorktree]
+    [worktrees, repositories, worktreeTabMap, handleSelectWorktree]
   );
 
   // Open add repository dialog
@@ -867,6 +881,8 @@ export default function App() {
                 onUpdateGroup={handleUpdateGroup}
                 onDeleteGroup={handleDeleteGroup}
                 onMoveToGroup={handleMoveToGroup}
+                onSwitchTab={setActiveTab}
+                onSwitchWorktreeByPath={handleSwitchWorktreePath}
               />
               {/* Resize handle */}
               <div
@@ -907,6 +923,8 @@ export default function App() {
                   onUpdateGroup={handleUpdateGroup}
                   onDeleteGroup={handleDeleteGroup}
                   onMoveToGroup={handleMoveToGroup}
+                  onSwitchTab={setActiveTab}
+                  onSwitchWorktreeByPath={handleSwitchWorktreePath}
                 />
                 {/* Resize handle */}
                 <div
@@ -981,6 +999,7 @@ export default function App() {
             : () => setWorktreeCollapsed(false)
         }
         onSwitchWorktree={handleSwitchWorktreePath}
+        onSwitchTab={handleTabChange}
       />
 
       {/* Global Settings Dialog */}
