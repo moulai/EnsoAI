@@ -926,6 +926,13 @@ export const zhTranslations: Record<string, string> = {
     '无法连接到远程仓库，请检查网络',
   'Invalid Git URL format. Please enter a valid HTTPS or SSH URL.':
     'Git URL 格式无效，请输入有效的 HTTPS 或 SSH URL',
+  // Clone Tasks
+  'Clone Tasks': '克隆任务',
+  'No clone tasks': '暂无克隆任务',
+  'Preparing...': '准备中...',
+  Completed: '已完成',
+  tasks: '个任务',
+  'and {{count}} more...': '还有 {{count}} 个...',
 };
 
 export function normalizeLocale(input?: string): Locale {

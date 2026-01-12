@@ -37,6 +37,7 @@ import {
 import { useAppKeyboardShortcuts } from './App/useAppKeyboardShortcuts';
 import { usePanelResize } from './App/usePanelResize';
 import { AddRepositoryDialog } from './components/git';
+import { CloneProgressFloat } from './components/git/CloneProgressFloat';
 import { ActionPanel } from './components/layout/ActionPanel';
 import { MainContent } from './components/layout/MainContent';
 import { RepositorySidebar } from './components/layout/RepositorySidebar';
@@ -67,11 +68,15 @@ import {
   useWorktreeResolveConflict,
 } from './hooks/useWorktree';
 import { useI18n } from './i18n';
+import { initCloneProgressListener } from './stores/cloneTasks';
 import { useEditorStore } from './stores/editor';
 import { useInitScriptStore } from './stores/initScript';
 import { useNavigationStore } from './stores/navigation';
 import { useSettingsStore } from './stores/settings';
 import { useWorktreeStore } from './stores/worktree';
+
+// Initialize global clone progress listener
+initCloneProgressListener();
 
 export default function App() {
   const { t } = useI18n();
@@ -310,13 +315,6 @@ export default function App() {
     localStorage.setItem(STORAGE_KEYS.REPOSITORIES, JSON.stringify(repos));
     setRepositories(repos);
   }, []);
-
-  const filteredRepositories = useMemo(() => {
-    if (activeGroupId === ALL_GROUP_ID) {
-      return repositories;
-    }
-    return repositories.filter((r) => r.groupId === activeGroupId);
-  }, [repositories, activeGroupId]);
 
   const sortedGroups = useMemo(() => {
     return [...groups].sort((a, b) => a.order - b.order);
@@ -1134,6 +1132,9 @@ export default function App() {
           </DialogPopup>
         </Dialog>
       )}
+
+      {/* Clone Progress Float - shows clone progress in bottom right corner */}
+      <CloneProgressFloat onCloneComplete={handleCloneRepository} />
     </div>
   );
 }
