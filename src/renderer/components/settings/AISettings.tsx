@@ -304,6 +304,11 @@ export function AISettings() {
                   </SelectPopup>
                 </Select>
                 <p className="text-xs text-muted-foreground">{t('AI provider to use')}</p>
+                {codeReview.provider === 'codex-cli' && (
+                  <p className="text-xs text-amber-500">
+                    {t('Codex does not support streaming output')}
+                  </p>
+                )}
               </div>
             </div>
 

@@ -635,6 +635,7 @@ export const zhTranslations: Record<string, string> = {
   'Model for generating branch names': '生成分支名使用的模型',
   'Reasoning Level': '推理深度',
   'Reasoning depth for Codex CLI': 'Codex CLI 的推理深度',
+  'Codex does not support streaming output': 'Codex 暂不支持流式输出',
   'Enable Code Review': '启用代码审查',
   'Show code review button in source control': '在版本控制中显示代码审查按钮',
   'Claude model for code review': '用于代码审查的 Claude 模型',
