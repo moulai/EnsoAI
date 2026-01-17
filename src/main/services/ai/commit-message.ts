@@ -49,13 +49,26 @@ ${stagedStat || '(no stats)'}
 ${truncatedDiff}`;
 
   try {
+    console.log(`[commit-msg] Starting with provider=${provider}, model=${model}, cwd=${workdir}`);
+    const modelInstance = getModel(model, { provider, reasoningEffort, cwd: workdir });
+    console.log(`[commit-msg] Model instance created, prompt length: ${prompt.length}`);
+
     const { text } = await generateText({
-      model: getModel(model, { provider, reasoningEffort, cwd: workdir }),
+      model: modelInstance,
       prompt,
       abortSignal: AbortSignal.timeout(timeout * 1000),
     });
+    console.log(`[commit-msg] Success, response length: ${text.length}`);
     return { success: true, message: text.trim() };
   } catch (err) {
+    console.error(`[commit-msg] Error:`, err);
+    if (err instanceof Error) {
+      console.error(`[commit-msg] Error name: ${err.name}, message: ${err.message}`);
+      console.error(`[commit-msg] Error stack:`, err.stack);
+      if ('cause' in err && err.cause) {
+        console.error(`[commit-msg] Error cause:`, err.cause);
+      }
+    }
     const error = err instanceof Error ? err.message : 'Unknown error';
     return { success: false, error };
   }

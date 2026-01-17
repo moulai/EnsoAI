@@ -51,6 +51,7 @@ const claudeCodeProvider = createClaudeCode({
 // Codex CLI provider with read-only sandbox
 const codexCliProvider = createCodexCli({
   defaultSettings: {
+    codexPath: 'codex',
     sandboxMode: 'read-only',
   },
 });
@@ -70,10 +71,15 @@ export interface GetModelOptions {
 export function getModel(modelId: ModelId, options: GetModelOptions = {}): LanguageModel {
   const { provider = 'claude-code', reasoningEffort, cwd } = options;
 
+  console.log(`[ai-providers] getModel called: provider=${provider}, model=${modelId}, cwd=${cwd}`);
+
   switch (provider) {
     case 'claude-code':
       return claudeCodeProvider(modelId as ClaudeModelId, { cwd });
     case 'codex-cli':
+      console.log(
+        `[ai-providers] Creating codex-cli model with reasoningEffort=${reasoningEffort ?? 'medium'}`
+      );
       return codexCliProvider(modelId as CodexModelId, {
         reasoningEffort: reasoningEffort ?? 'medium',
         cwd,

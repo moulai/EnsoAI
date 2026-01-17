@@ -108,9 +108,18 @@ export async function startCodeReview(options: CodeReviewOptions): Promise<void>
   activeReviews.set(reviewId, controller);
 
   try {
+    console.log(
+      `[code-review] Starting review with provider=${provider}, model=${model}, cwd=${workdir}`
+    );
+    const modelInstance = getModel(model, { provider, reasoningEffort, cwd: workdir });
+    console.log(`[code-review] Model instance created`);
+
+    const prompt = buildPrompt(gitDiff, gitLog, language);
+    console.log(`[code-review] Prompt length: ${prompt.length} chars`);
+
     const result = streamText({
-      model: getModel(model, { provider, reasoningEffort, cwd: workdir }),
-      prompt: buildPrompt(gitDiff, gitLog, language),
+      model: modelInstance,
+      prompt,
       abortSignal: controller.signal,
     });
 
@@ -119,6 +128,14 @@ export async function startCodeReview(options: CodeReviewOptions): Promise<void>
     }
     onComplete();
   } catch (err) {
+    console.error(`[code-review] Error:`, err);
+    if (err instanceof Error) {
+      console.error(`[code-review] Error name: ${err.name}, message: ${err.message}`);
+      console.error(`[code-review] Error stack:`, err.stack);
+      if ('cause' in err && err.cause) {
+        console.error(`[code-review] Error cause:`, err.cause);
+      }
+    }
     if (err instanceof Error && err.name === 'AbortError') {
       return;
     }
