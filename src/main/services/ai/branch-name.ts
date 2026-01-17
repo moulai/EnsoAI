@@ -17,11 +17,11 @@ export interface BranchNameResult {
 }
 
 export async function generateBranchName(options: BranchNameOptions): Promise<BranchNameResult> {
-  const { prompt, provider, model, reasoningEffort, timeout = 120 } = options;
+  const { workdir, prompt, provider, model, reasoningEffort, timeout = 120 } = options;
 
   try {
     const { text } = await generateText({
-      model: getModel(model, { provider, reasoningEffort }),
+      model: getModel(model, { provider, reasoningEffort, cwd: workdir }),
       prompt,
       abortSignal: AbortSignal.timeout(timeout * 1000),
     });

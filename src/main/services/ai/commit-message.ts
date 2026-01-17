@@ -50,7 +50,7 @@ ${truncatedDiff}`;
 
   try {
     const { text } = await generateText({
-      model: getModel(model, { provider, reasoningEffort }),
+      model: getModel(model, { provider, reasoningEffort, cwd: workdir }),
       prompt,
       abortSignal: AbortSignal.timeout(timeout * 1000),
     });

@@ -94,7 +94,7 @@ export async function startCodeReview(options: CodeReviewOptions): Promise<void>
 
   try {
     const result = streamText({
-      model: getModel(model, { provider, reasoningEffort }),
+      model: getModel(model, { provider, reasoningEffort, cwd: workdir }),
       prompt: buildPrompt(gitDiff, gitLog, language),
       abortSignal: controller.signal,
     });

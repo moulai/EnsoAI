@@ -55,28 +55,30 @@ const codexCliProvider = createCodexCli({
 
 const geminiCliProvider = createGeminiCli({
   defaultSettings: {
-    allowedTools: [],
+    allowedTools: ['read_file', 'list_directory', 'search_files'],
   },
 });
 
 export interface GetModelOptions {
   provider?: AIProvider;
-  reasoningEffort?: ReasoningEffort; // For Codex CLI
+  reasoningEffort?: ReasoningEffort;
+  cwd?: string;
 }
 
 export function getModel(modelId: ModelId, options: GetModelOptions = {}): LanguageModel {
-  const { provider = 'claude-code', reasoningEffort } = options;
+  const { provider = 'claude-code', reasoningEffort, cwd } = options;
 
   switch (provider) {
     case 'claude-code':
-      return claudeCodeProvider(modelId as ClaudeModelId);
+      return claudeCodeProvider(modelId as ClaudeModelId, { cwd });
     case 'codex-cli':
       return codexCliProvider(modelId as CodexModelId, {
         reasoningEffort: reasoningEffort ?? 'medium',
+        cwd,
       });
     case 'gemini-cli':
-      return geminiCliProvider(modelId as GeminiModelId);
+      return geminiCliProvider(modelId as GeminiModelId, { cwd });
     default:
-      return claudeCodeProvider(modelId as ClaudeModelId);
+      return claudeCodeProvider(modelId as ClaudeModelId, { cwd });
   }
 }
