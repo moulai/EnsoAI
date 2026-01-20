@@ -21,7 +21,6 @@ import { useI18n } from '@/i18n';
 import { springFast } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useAgentSessionsStore } from '@/stores/agentSessions';
-import { useSettingsStore } from '@/stores/settings';
 import { TerminalPanel } from '../terminal';
 
 type LayoutMode = 'columns' | 'tree';
@@ -58,8 +57,6 @@ export function MainContent({
   onSwitchTab,
 }: MainContentProps) {
   const { t } = useI18n();
-  const terminalBackgroundOpacity = useSettingsStore((s) => s.terminalBackgroundOpacity);
-  const isTerminalTransparent = terminalBackgroundOpacity < 100;
 
   // Diff Review Modal state
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -194,12 +191,7 @@ export function MainContent({
   const hasActiveWorktree = Boolean(repoPath && worktreePath);
 
   return (
-    <main
-      className={cn(
-        'flex min-w-[535px] flex-1 flex-col overflow-hidden',
-        !isTerminalTransparent && 'bg-background'
-      )}
-    >
+    <main className={cn('flex min-w-[535px] flex-1 flex-col overflow-hidden bg-background')}>
       {/* Header with tabs */}
       <header
         className={cn(
@@ -344,8 +336,7 @@ export function MainContent({
         {/* Chat tab - ALWAYS keep AgentPanel mounted to preserve terminal sessions across repo switches */}
         <div
           className={cn(
-            'absolute inset-0',
-            !isTerminalTransparent && 'bg-background',
+            'absolute inset-0 bg-background',
             activeTab === 'chat' ? 'z-10' : 'invisible pointer-events-none z-0'
           )}
         >
@@ -406,8 +397,7 @@ export function MainContent({
         {/* Terminal tab - keep mounted to preserve shell sessions */}
         <div
           className={cn(
-            'absolute inset-0',
-            !isTerminalTransparent && 'bg-background',
+            'absolute inset-0 bg-background',
             activeTab === 'terminal' ? 'z-10' : 'invisible pointer-events-none z-0'
           )}
         >
