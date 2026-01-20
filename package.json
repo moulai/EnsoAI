@@ -109,10 +109,16 @@
     "overrides": {
       "dmg-builder": "26.4.0",
       "app-builder-lib": "26.4.0",
-      "electron-builder-squirrel-windows": "26.4.0"
+      "electron-builder-squirrel-windows": "26.4.0",
+      "@openai/codex": "link:",
+      "googleapis": "link:",
+      "@google-cloud/logging": "link:",
+      "@google-cloud/opentelemetry-cloud-monitoring-exporter": "link:",
+      "@google-cloud/opentelemetry-cloud-trace-exporter": "link:"
     },
     "patchedDependencies": {
-      "ai-sdk-provider-codex-cli": "patches/ai-sdk-provider-codex-cli.patch"
+      "ai-sdk-provider-codex-cli": "patches/ai-sdk-provider-codex-cli.patch",
+      "@google/gemini-cli-core@0.22.4": "patches/@google__gemini-cli-core@0.22.4.patch"
     }
   }
 }
