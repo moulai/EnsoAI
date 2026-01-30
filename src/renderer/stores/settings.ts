@@ -151,6 +151,15 @@ export const BUILTIN_AGENT_IDS: BuiltinAgentId[] = [
   'opencode',
 ];
 
+// Quick Terminal settings
+export interface QuickTerminalSettings {
+  enabled: boolean;
+  buttonPosition: { x: number; y: number } | null;
+  modalPosition: { x: number; y: number } | null;
+  modalSize: { width: number; height: number } | null;
+  isOpen: boolean;
+}
+
 // Keybinding definition
 export interface TerminalKeybinding {
   key: string;
@@ -528,6 +537,8 @@ interface SettingsState {
   settingsModalPosition: { x: number; y: number } | null;
   // Terminal theme favorites
   favoriteTerminalThemes: string[];
+  // Quick Terminal settings
+  quickTerminal: QuickTerminalSettings;
 
   setTheme: (theme: Theme) => void;
   setLayoutMode: (mode: LayoutMode) => void;
@@ -602,6 +613,12 @@ interface SettingsState {
   addFavoriteTerminalTheme: (theme: string) => void;
   removeFavoriteTerminalTheme: (theme: string) => void;
   toggleFavoriteTerminalTheme: (theme: string) => void;
+  // Quick Terminal methods
+  setQuickTerminalEnabled: (enabled: boolean) => void;
+  setQuickTerminalButtonPosition: (position: { x: number; y: number } | null) => void;
+  setQuickTerminalModalPosition: (position: { x: number; y: number } | null) => void;
+  setQuickTerminalModalSize: (size: { width: number; height: number } | null) => void;
+  setQuickTerminalOpen: (open: boolean) => void;
 }
 
 const defaultAgentSettings: AgentSettings = {
@@ -670,6 +687,14 @@ export const useSettingsStore = create<SettingsState>()(
       settingsModalPosition: null, // 首次打开居中
       // Terminal theme favorites
       favoriteTerminalThemes: [],
+      // Quick Terminal defaults
+      quickTerminal: {
+        enabled: true,
+        buttonPosition: null,
+        modalPosition: null,
+        modalSize: null,
+        isOpen: false,
+      },
 
       setTheme: (theme) => {
         const terminalTheme = get().terminalTheme;
@@ -960,6 +985,27 @@ export const useSettingsStore = create<SettingsState>()(
             ? state.favoriteTerminalThemes.filter((t) => t !== theme)
             : [...state.favoriteTerminalThemes, theme],
         })),
+      // Quick Terminal methods
+      setQuickTerminalEnabled: (enabled) =>
+        set((state) => ({
+          quickTerminal: { ...state.quickTerminal, enabled },
+        })),
+      setQuickTerminalButtonPosition: (position) =>
+        set((state) => ({
+          quickTerminal: { ...state.quickTerminal, buttonPosition: position },
+        })),
+      setQuickTerminalModalPosition: (position) =>
+        set((state) => ({
+          quickTerminal: { ...state.quickTerminal, modalPosition: position },
+        })),
+      setQuickTerminalModalSize: (size) =>
+        set((state) => ({
+          quickTerminal: { ...state.quickTerminal, modalSize: size },
+        })),
+      setQuickTerminalOpen: (open) =>
+        set((state) => ({
+          quickTerminal: { ...state.quickTerminal, isOpen: open },
+        })),
     }),
     {
       name: 'enso-settings',
@@ -1100,6 +1146,11 @@ export const useSettingsStore = create<SettingsState>()(
           // MCP, Prompts - use persisted or defaults
           mcpServers: persisted.mcpServers ?? currentState.mcpServers,
           promptPresets: persisted.promptPresets ?? currentState.promptPresets,
+          // Quick Terminal - deep merge with defaults
+          quickTerminal: {
+            ...currentState.quickTerminal,
+            ...persisted.quickTerminal,
+          },
         };
       },
       onRehydrateStorage: () => (state) => {
