@@ -284,7 +284,7 @@ function SessionTab({
               className="w-20 bg-transparent outline-none border-b border-current"
             />
           ) : (
-            <span>{session.name}</span>
+            <span>{session.terminalTitle || session.name}</span>
           )}
           <button
             type="button"
@@ -358,7 +358,7 @@ function SessionTab({
             className="relative z-10 w-20 bg-transparent outline-none border-b border-current"
           />
         ) : (
-          <span className="relative z-10">{session.name}</span>
+          <span className="relative z-10">{session.terminalTitle || session.name}</span>
         )}
         <button
           type="button"
@@ -684,7 +684,7 @@ export function SessionBar({
 
   const handleStartEdit = useCallback((session: Session) => {
     setEditingId(session.id);
-    setEditingName(session.name);
+    setEditingName(session.terminalTitle || session.name);
     setTimeout(() => inputRef.current?.select(), 0);
   }, []);
 
