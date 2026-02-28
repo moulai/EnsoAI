@@ -44,6 +44,7 @@ export interface Session {
   environment?: 'native' | 'hapi' | 'happy'; // execution environment (default: native)
   displayOrder?: number; // order in SessionBar (lower = first), used for drag reorder
   terminalTitle?: string; // current terminal title from OSC escape sequence
+  userRenamed?: boolean; // true when user has manually renamed this session
 }
 
 interface SessionBarProps {
@@ -212,7 +213,12 @@ const ProviderMenuItem = React.memo(function ProviderMenuItem({
 });
 
 /** Pick the best display name for a session tab */
-function getSessionDisplayName(session: { terminalTitle?: string; name: string }): string {
+function getSessionDisplayName(session: {
+  terminalTitle?: string;
+  name: string;
+  userRenamed?: boolean;
+}): string {
+  if (session.userRenamed) return session.name;
   const title = session.terminalTitle;
   if (!title) return session.name;
   // Skip raw process paths (e.g. "Administrator: C:\...\pwsh.exe")
@@ -279,6 +285,10 @@ function SessionTab({
           onDragLeave={onDragLeave}
           onDrop={onDrop}
           onClick={onSelect}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onStartEdit();
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -353,6 +363,10 @@ function SessionTab({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onClick={onSelect}
+        onDoubleClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          onStartEdit();
+        }}
         onKeyDown={(e: React.KeyboardEvent) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();

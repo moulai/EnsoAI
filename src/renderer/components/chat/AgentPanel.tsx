@@ -871,7 +871,7 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
 
   const handleRenameSession = useCallback(
     (id: string, name: string) => {
-      updateSession(id, { name, terminalTitle: undefined });
+      updateSession(id, { name, terminalTitle: undefined, userRenamed: true });
     },
     [updateSession]
   );
@@ -1574,6 +1574,7 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
                 onActivatedWithFirstLine={(line) => handleActivatedWithFirstLine(sessionId, line)}
                 onExit={() => handleCloseSession(sessionId, groupId || undefined)}
                 onTerminalTitleChange={(title) => {
+                  if (session.userRenamed) return;
                   const syncName =
                     title &&
                     isCursorAgent(session.agentId) &&
