@@ -50,7 +50,7 @@ function runGit(args: string[], cwd: string): Promise<string> {
   return new Promise((resolve) => {
     let stdout = '';
 
-    const proc = spawnGit(cwd, args, { cwd });
+    const proc = spawnGit(cwd, args);
 
     const timeout = setTimeout(() => {
       if (!proc.killed) {
@@ -62,6 +62,9 @@ function runGit(args: string[], cwd: string): Promise<string> {
     proc.stdout.on('data', (data) => {
       stdout += data.toString('utf-8');
     });
+
+    // Drain stderr to avoid child process blocking on full pipe buffer.
+    proc.stderr.on('data', () => {});
 
     proc.on('error', () => {
       clearTimeout(timeout);
